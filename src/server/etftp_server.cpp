@@ -8,30 +8,21 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <ifaddrs.h>
+#include <curl/curl.h>
 
 #include "etftp_server.h"
 #include "../common/etftp_security.h"
 #include "../common/etftp_packet.h"
 
-// Login
-// Forks
+static size_t writeCallback(void *contents, size_t size, size_t nmemb, std::string *data)
+{
+    size_t totalSize = size * nmemb;
+    data->append((char *)contents, totalSize);
+    return totalSize;
+}
 
 in_addr_t getIpAddress()
 {
-    // char hostname[256];
-    // if (gethostname(hostname, sizeof(hostname)) != 0) {
-    //     std::cerr << "Error getting hostname" << std::endl;
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // struct hostent* host = gethostbyname(hostname);
-    // if (host == nullptr || host->h_addr_list[0] == nullptr) {
-    //     std::cerr << "Error getting host IP" << std::endl;
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // return *((in_addr_t*)host->h_addr_list[0]);
-
     struct ifaddrs *ifAddrStruct = nullptr;
     struct ifaddrs *ifa = nullptr;
     void *tmpAddrPtr = nullptr;
@@ -67,6 +58,37 @@ in_addr_t getIpAddress()
     std::cerr << "Failed to get public IP" << std::endl;
     // exit(EXIT_FAILURE);
     return INADDR_ANY;
+}
+
+static std::string getPublicIpAddress()
+{
+    CURL *curl;
+    CURLcode res;
+    std::string response;
+
+    curl = curl_easy_init();
+    if (curl)
+    {
+        curl_easy_setopt(curl, CURLOPT_URL, "https://myexternalip.com/raw");
+
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        res = curl_easy_perform(curl);
+
+        // Check for errors
+        if (res != CURLE_OK)
+        {
+            std::cerr << "Failed to perform GET request: " << curl_easy_strerror(res) << std::endl;
+        }
+
+        // Cleanup
+        curl_easy_cleanup(curl);
+    }
+    else
+    {
+        std::cerr << "Failed to get public IP address" << std::endl;
+    }
+    return response;
 }
 
 namespace ETFTP
@@ -240,6 +262,7 @@ namespace ETFTP
         this->listenerSocket = socket(AF_INET, SOCK_DGRAM, 0);
         if (bind(this->listenerSocket, (const sockaddr *)&this->serverAddress, sizeof(this->serverAddress)) < 0)
         {
+            perror("Bind()\n");
             return false;
         }
 
@@ -365,7 +388,12 @@ int main(int argc, char *argv[])
             if (input == "ip")
             {
                 inet_ntop(AF_INET, &ETFTP::Server::SERVER_IP_ADDRESS, buffer, 80);
-                printf("%s\n", buffer);
+                printf("Local  IP Address: %s\n", buffer);
+                std::string ip = getPublicIpAddress();
+                if (ip.length() != 0)
+                {
+                    std::cout << "Public IP Address: " << ip << std::endl;
+                }
             }
             else
             {

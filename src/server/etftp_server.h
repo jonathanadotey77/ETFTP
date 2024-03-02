@@ -16,7 +16,6 @@ namespace ETFTP
     class Server
     {
     public:
-
         static const in_addr_t SERVER_IP_ADDRESS;
         static const std::string FILESYSTEM_ROOT;
 
@@ -34,14 +33,13 @@ namespace ETFTP
         uint16_t endPort;
 
         struct sockaddr_in serverAddress;
-        
+
         std::mutex serverLock;
         std::unordered_map<std::string, FileMutex> fileLocks;
 
         LoginSystem loginSystem;
 
         volatile bool stopped;
-
 
     public:
         Server(uint16_t startPort, uint16_t endPort);
@@ -51,15 +49,15 @@ namespace ETFTP
         bool stop();
         bool isStopped() const;
 
-        LoginSystem::Status tryLogin(const std::string& username, const std::string& password);
-        LoginSystem::Status registerUser(const std::string& username, const std::string& password);
+        LoginSystem::Status tryLogin(const std::string &username, const std::string &password);
+        LoginSystem::Status registerUser(const std::string &username, const std::string &password);
         LoginSystem::Status changePassword(const std::string &username,
-                              const std::string &oldPassword,
-                              const std::string &newPassword);
+                                           const std::string &oldPassword,
+                                           const std::string &newPassword);
 
     public:
         static void *listenerThread(void *a);
-        static void *clientThread(void* a);
+        static void *clientThread(void *a);
     };
 
 }

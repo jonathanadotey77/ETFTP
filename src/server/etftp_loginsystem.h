@@ -7,14 +7,22 @@
 
 namespace ETFTP
 {
-    class LoginSystem {
+    class LoginSystem
+    {
     public:
-        enum Status {
-            e_Success, e_IncorrectPassword, e_NoSuchUser, e_UserAlreadyExists, e_Error
+        enum Status
+        {
+            e_Success,
+            e_IncorrectPassword,
+            e_NoSuchUser,
+            e_UserAlreadyExists,
+            e_Error
         };
+
     private:
         static const std::string LOGIN_FILE;
-        sqlite3* dbHandle;
+        sqlite3 *dbHandle;
+
     public:
         LoginSystem() {}
 
@@ -22,13 +30,13 @@ namespace ETFTP
 
         void stop();
 
-        Status tryLogin(const std::string& username, const std::string& password);
+        Status tryLogin(const std::string &username, const std::string &password);
 
-        Status registerUser(const std::string& username, const std::string& password);
+        Status registerUser(const std::string &username, const std::string &password);
 
-        Status changePassword(const std::string& username,
-        const std::string& oldPassword,
-        const std::string& newPassword);
+        Status changePassword(const std::string &username,
+                              const std::string &oldPassword,
+                              const std::string &newPassword);
     };
 }
 
