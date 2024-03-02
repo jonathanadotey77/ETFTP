@@ -26,7 +26,9 @@ namespace ETFTP
 
         Status registerUser(const std::string& username, const std::string& password);
 
-        bool changePassword(const std::string& username, const std::string& oldPassword, const std::string& newPassword);
+        Status changePassword(const std::string& username,
+        const std::string& oldPassword,
+        const std::string& newPassword);
     };
 }
 

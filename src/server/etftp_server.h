@@ -51,7 +51,11 @@ namespace ETFTP
         bool stop();
         bool isStopped() const;
 
-        ETFTP::LoginSystem::Status registerUser(const std::string& username, const std::string& password);
+        LoginSystem::Status tryLogin(const std::string& username, const std::string& password);
+        LoginSystem::Status registerUser(const std::string& username, const std::string& password);
+        LoginSystem::Status changePassword(const std::string &username,
+                              const std::string &oldPassword,
+                              const std::string &newPassword);
 
     public:
         static void *listenerThread(void *a);

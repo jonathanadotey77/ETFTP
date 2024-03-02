@@ -8,7 +8,9 @@ namespace ETFTP
 
     void random_mask(unsigned char *buffer);
 
-    bool computeHash(const std::string &unhashed, std::string &hashed);
+    void hashPassword(const std::string &unhashed, std::string &hashed);
+
+    bool validPassword(const std::string& password);
 }
 
 #endif
