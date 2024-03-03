@@ -1,4 +1,5 @@
 #include "etftp_security.h"
+#include "etftp_misc.h"
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
@@ -7,27 +8,22 @@
 #include <sstream>
 #include <iomanip>
 
-static std::string bytesToHexString(const unsigned char *bytes, size_t length) {
-    std::stringstream ss;
-    ss << std::hex << std::setfill('0');
-    for (size_t i = 0; i < length; ++i) {
-        ss << std::setw(2) << static_cast<unsigned int>(bytes[i]);
-    }
-    return ss.str();
-}
 
 namespace ETFTP
 {
 
-    void randomMask(unsigned char *buffer)
+    void randomMask(Buffer& buffer)
     {
+        if(buffer.size() != 512) {
+            buffer.init(512);
+        }
         static bool initialized = false;
         if (!initialized)
         {
             RAND_poll();
             initialized = true;
         }
-        RAND_bytes(buffer, 512);
+        RAND_bytes(buffer.data(), 512);
     }
 
     void hashPassword(const std::string& password, std::string& hashedPassword) {

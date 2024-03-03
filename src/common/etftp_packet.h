@@ -20,8 +20,14 @@ namespace ETFTP
         e_LoginRequest,
         e_LoginResponse,
         e_ListRequest,
-        e_ListResponse
+        e_ListResponse,
+        e_Ping
     };
+
+    typedef struct PingPacket_t {
+        uint16_t packetType;
+        uint8_t value;
+    } PingPacket_t;
 
     typedef struct GetRequestPacket_t
     {
@@ -81,6 +87,7 @@ namespace ETFTP
     typedef struct LoginResponsePacket_t
     {
         uint16_t packetType = e_LoginResponse;
+        uint16_t step;
         uint16_t status;
         uint16_t port;
     } LoginResponsePacket_t;

@@ -3,6 +3,8 @@
 
 #include "etftp_filemutex.h"
 #include "etftp_loginsystem.h"
+#include "etftp_lfucache.h"
+#include "../common/etftp_buffer.h"
 
 #include <arpa/inet.h>
 #include <mutex>
@@ -38,6 +40,8 @@ namespace ETFTP
         std::unordered_map<std::string, FileMutex> fileLocks;
 
         LoginSystem loginSystem;
+
+        LFUCache<uint16_t, Buffer> keyTable;
 
         volatile bool stopped;
 
