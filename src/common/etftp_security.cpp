@@ -3,6 +3,7 @@
 #include <openssl/rand.h>
 #include <openssl/sha.h>
 #include <openssl/evp.h>
+#include <random>
 #include <string>
 #include <string.h>
 #include <sstream>
@@ -12,16 +13,31 @@
 namespace ETFTP
 {
 
+    static bool randInitialized = false;
+
+    uint16_t randomInt16() {
+        if (!randInitialized)
+        {
+            RAND_poll();
+            randInitialized = true;
+        }
+
+        uint16_t r = 0;
+        RAND_bytes(reinterpret_cast<unsigned char*>(&r), 2);
+
+        return r;
+    }
+
     void randomMask(Buffer& buffer)
     {
         if(buffer.size() != 512) {
             buffer.init(512);
         }
-        static bool initialized = false;
-        if (!initialized)
+
+        if (!randInitialized)
         {
             RAND_poll();
-            initialized = true;
+            randInitialized = true;
         }
         RAND_bytes(buffer.data(), 512);
     }

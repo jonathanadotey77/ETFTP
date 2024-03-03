@@ -6,6 +6,9 @@
 
 namespace ETFTP
 {
+
+    uint16_t randomInt16();
+
     void randomMask(Buffer& buffer);
 
     void hashPassword(const std::string &unhashed, std::string &hashed);

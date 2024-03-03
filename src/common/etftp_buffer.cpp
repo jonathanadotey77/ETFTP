@@ -10,7 +10,7 @@ namespace ETFTP
         this->buffer = new uint8_t[this->len];
         this->zero();
     }
-    Buffer::Buffer(const unsigned char *src, size_t len)
+    Buffer::Buffer(const uint8_t *src, size_t len)
     {
         this->len = len;
         this->buffer = new uint8_t[len];

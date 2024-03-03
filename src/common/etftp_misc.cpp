@@ -93,11 +93,4 @@ namespace ETFTP
         return response;
     }
 
-    void applyMask(unsigned char* buffer, const unsigned char* mask, size_t len) {
-
-        for(size_t i = 0; i < len; ++i) {
-            buffer[i] = buffer[i] ^ mask[i];
-        }
-    }
-
 }

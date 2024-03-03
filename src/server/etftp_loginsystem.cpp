@@ -50,7 +50,6 @@ namespace ETFTP
 
             return false;
         }
-        printf("T\n");
 
         return true;
     }

@@ -20,5 +20,6 @@ server_files=$(ls server/*.cpp)
 client_files=$(ls client/*.cpp)
 
 clang++ -Wall -Wextra -g -lssl -lcrypto -lpthread -lsqlite3 -lcurl -o ../build/etftp_server $common_files $server_files
+clang++ -Wall -Wextra -g -lssl -lcrypto -lcurl  -o ../build/etftp_client $common_files $client_files
 
 cd $current_directory

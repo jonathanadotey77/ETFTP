@@ -47,7 +47,7 @@ template <class Key, class Value>
 void LFUCache<Key, Value>::put(const Key& key, const Value& value) {
     if(table.find(key) == table.end()) {
         queue.push_front({key, value});
-        table[key] = queue.front();
+        table[key] = queue.begin();
     } else {
         EntryIterator itr = table[key];
         queue.push_front(*itr);

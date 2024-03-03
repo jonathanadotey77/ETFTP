@@ -1,28 +1,177 @@
 #include <iostream>
-
-#include "etftp_misc.h"
+#include <unistd.h>
+#include "../common/etftp_buffer.h"
+#include "../common/etftp_packet.h"
+#include "etftp_client.h"
 #include <arpa/inet.h>
+#include <poll.h>
 
 namespace ETFTP
 {
-    class Client {
-    private:
+    const in_addr_t Client::CLIENT_IP_ADDRESS = getIpAddress();
+
+    Client::Client(uint16_t port)
+    {
+        this->port = port;
+        printf("Port: %d\n", port);
+
+        this->serverAddress.sin_family = AF_INET;
+        this->serverAddress.sin_addr.s_addr = CLIENT_IP_ADDRESS;
+        this->serverAddress.sin_port = htons(10000);
+
+        this->clientAddress.sin_family = AF_INET;
+        this->clientAddress.sin_addr.s_addr = CLIENT_IP_ADDRESS;
+        this->clientAddress.sin_port = htons(this->port);
+        this->sd = 0;
+    }
+
+    bool Client::start()
+    {
+        this->sd = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if(bind(sd, (const sockaddr*)&this->clientAddress, sizeof(this->clientAddress)) < 0) {
+            fprintf(stderr, "Bind() failed\n");
+            return false;
+        }
+
+        this->printServerInfo();
+
+        return true;
+    }
+    void Client::stop()
+    {
+        close(this->sd);
+    }
+
+    bool Client::login(const std::string &username, const std::string &password)
+    {
+        return true;
+    }
+
+    bool Client::ping(int value)
+    {
+        PingPacket pingPacket;
+        pingPacket.value = value;
+
+        uint8_t buffer[PingPacket::SIZE] = {0};
+
+        PingPacket::serialize(buffer, &pingPacket);
+
+        char ip[80] = {0};
+        inet_ntop(AF_INET, &this->serverAddress.sin_addr.s_addr, ip, 80);
+        printf("Pinging %s:%d\n", ip, static_cast<int>(ntohs(this->serverAddress.sin_port)));
 
 
-    struct sockaddr_in serverAddress;
-    struct sockaddr_in clientAddress;
-    uint16_t port;
+        sendto(this->sd, buffer, PingPacket::SIZE, 0, (const sockaddr*)&this->serverAddress, sizeof(this->serverAddress));
 
+        struct sockaddr_in address = this->serverAddress;
+        socklen_t addressLen = sizeof(address);
 
-    public:
-        Client();
+        memset(&pingPacket, 0, sizeof(pingPacket));
+        memset(buffer, 0, PingPacket::SIZE);
 
-        bool login(const std::string& serverIpAddress, uint16_t serverPort);
-        bool ping();
-    };
+        struct pollfd pfd[1];
+        pfd[0].fd = this->sd;
+        pfd[0].events = POLLIN;
+        pfd[0].revents = 0;
+
+        int rc = poll(pfd, 1, 4000);
+
+        if (rc == -1)
+        {
+            // Poll Error
+            perror("Poll Error");
+            return false;;
+        }
+        else if (rc == 0)
+        {
+            printf("Ping timeout\n");
+            return false;
+        }
+        int bytes = recvfrom(this->sd, buffer, PingPacket::SIZE, 0, (struct sockaddr*)&address, &addressLen);
+        if(bytes != PingPacket::SIZE) {
+            return false;
+        }
+
+        PingPacket::deserialize(&pingPacket, buffer);
+
+        return pingPacket.value == value;
+    }
+    void Client::setServer(const std::string &serverIpAddress, uint16_t serverPort)
+    {
+        this->serverAddress.sin_addr.s_addr = inet_addr(serverIpAddress.c_str());
+        this->serverAddress.sin_port = htons(serverPort);
+    }
+
+    void Client::printServerInfo() const {
+        char buffer[80] = {0};
+        inet_ntop(AF_INET, &this->serverAddress.sin_addr.s_addr, buffer, 80);
+        printf("Server IP Address set to %s:%d\n", buffer, static_cast<int>(ntohs(this->serverAddress.sin_port)));
+    }
 }
 
-int main() {
+int main(int argc, char* argv[])
+{
+
+    if (argc != 2)
+    {
+        fprintf(stderr, "USAGE: %s <port>\n", argv[0]);
+        return 1;
+    }
+
+    for (char *p = argv[1]; *p != '\0'; ++p)
+    {
+        if (!isdigit(*p))
+        {
+            fprintf(stderr, "USAGE: %s <port>\n", argv[0]);
+            return 1;
+        }
+    }
+
+    const uint32_t port = atoi(argv[1]);
+
+    if (port > 65535)
+    {
+        fprintf(stderr, "USAGE: %s <start port> <end port>\n", argv[0]);
+        return 1;
+    }
+
+    ETFTP::Client client(static_cast<uint16_t>(port));
+
+    if(!client.start()) {
+        fprintf(stderr, "Failed to start\n");
+        exit(1);
+    }
+
+    std::string input;
+    while(std::cin >> input) {
+        if(input == "quit") {
+            break;
+        }
+
+        if(input == "set_server") {
+            std::string serverIpAddress;
+            uint16_t serverPort;
+
+            std::cin >> serverIpAddress >> serverPort;
+
+            client.setServer(serverIpAddress, serverPort);
+            client.printServerInfo();
+        } else if(input == "ping") {
+            uint64_t value;
+            std::cin >> value;
+            value &= (int)UINT16_MAX;
+            if(client.ping((uint16_t)value)) {
+                std::cout << value << std::endl;
+            } else {
+                printf("Ping failed\n");
+            }
+        } else {
+            continue;
+        }
+    }
+
+    client.stop();
 
     return 0;
 }

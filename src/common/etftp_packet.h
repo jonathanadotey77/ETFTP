@@ -1,6 +1,7 @@
 #ifndef ETFTP_PACKET_H
 #define ETFTP_PACKET_H
 
+#include <string.h>
 #include <stdint.h>
 
 namespace ETFTP
@@ -9,14 +10,12 @@ namespace ETFTP
     enum PacketTypes
     {
         e_None,
-        e_Get,
-        e_Post,
-        e_Put,
-        e_Delete,
-        e_CD,
-        e_Error,
+        e_ReadRequest,
+        e_WriteRequest,
+        e_DeleteRequest,
         e_FileData,
         e_Ack,
+        e_Error,
         e_LoginRequest,
         e_LoginResponse,
         e_ListRequest,
@@ -24,84 +23,97 @@ namespace ETFTP
         e_Ping
     };
 
-    typedef struct PingPacket_t {
-        uint16_t packetType;
-        uint8_t value;
-    } PingPacket_t;
-
-    typedef struct GetRequestPacket_t
+    typedef struct ReadRequestPacket
     {
-        uint16_t packetType = e_Get;
-    } GetRequestPacket_t;
+        static const size_t SIZE = 259;
+        uint16_t packetType = e_ReadRequest;
+        char filePath[257];
+    } ReadRequestPacket;
 
-    typedef struct PostRequestPacket_t
+    typedef struct WriteRequestPacket
     {
-        uint16_t packetType = e_Post;
-    } PostRequestPacket_t;
+        static const size_t SIZE = 259;
+        uint16_t packetType = e_WriteRequest;
+        char filePath[257];
+    } WriteRequestPacket;
 
-    typedef struct PutRequestPacket_t
+    typedef struct DeleteRequestPacket
     {
-        uint16_t packetType = e_Put;
-    } PutRequestPacket_t;
+        static const size_t SIZE = 259;
+        uint16_t packetType = e_DeleteRequest;
+        char filePath[257];
+    } DeleteRequestPacket;
 
-    typedef struct DeleteRequestPacket_t
+    typedef struct ErrorPacket
     {
-        uint16_t packetType = e_Delete;
-    } DeleteRequestPacket_t;
-
-    typedef struct CDRequestPacket_t
-    {
-        uint16_t packetType = e_CD;
-
-    } CDRequestPacket_t;
-
-    typedef struct ErrorPacket_t
-    {
+        static const size_t SIZE = 259;
         uint16_t packetType = e_Error;
         uint16_t errorCode;
-        char message[514];
-    } ErrorPacket_t;
+        char message[257];
+    } ErrorPacket;
 
-    typedef struct FileDataPacket_t
+    typedef struct FileDataPacket
     {
+        static const size_t SIZE = 518;
         uint16_t packetType = e_FileData;
         uint32_t blockNumber;
         uint8_t data[512];
-    } FileDataPacket_t;
+    } FileDataPacket;
 
-    typedef struct AckPacket_t
+    typedef struct AckPacket
     {
+        static const size_t SIZE = 6;
         uint16_t packetType = e_Ack;
         uint32_t code;
-    } AckPacket_t;
+    } AckPacket;
 
-    typedef struct LoginRequestPacket_t
+    typedef struct LoginRequestPacket
     {
+        static const size_t SIZE = 104;
+        static void serialize(uint8_t* dest, const LoginRequestPacket* src);
+        static void deserialize(LoginRequestPacket* dest, const uint8_t* src);
         uint16_t packetType = e_LoginRequest;
-        char username[33];
-        char password[65];
-    } LoginRequestPacket_t;
+        uint16_t step;
+        uint16_t keyId;
+        unsigned char data[98];
+    } LoginRequestPacket;
 
     //Status is 0 when login fails, 1 when login succeeds,
-    //  and 2 if login succeeds but no port is available
-    typedef struct LoginResponsePacket_t
+    //  2 if login succeeds but no port is available,
+    //  and 3 if handshake failed;
+    typedef struct LoginResponsePacket
     {
+        static const size_t SIZE = 118;
+        static void serialize(uint8_t* dest, const LoginResponsePacket* src);
+        static void deserialize(LoginResponsePacket* dest, const uint8_t* src);
         uint16_t packetType = e_LoginResponse;
         uint16_t step;
+        uint16_t keyId;
         uint16_t status;
         uint16_t port;
-    } LoginResponsePacket_t;
+        unsigned char data[98];
+    } LoginResponsePacket;
 
-    typedef struct ListRequestPacket_t
+    typedef struct ListRequestPacket
     {
+        static const size_t SIZE = 24;
         uint16_t packetType = e_ListRequest;
         
-    } ListRequestPacket_t;
+    } ListRequestPacket;
 
-    typedef struct ListResponsePacket_t
+    typedef struct ListResponsePacket
     {
+        static const size_t SIZE = 24;
         uint16_t packetType = e_ListResponse;
-    } ListResponsePacket_t;
+    } ListResponsePacket;
+
+    typedef struct PingPacket {
+        static void serialize(uint8_t* dest, const PingPacket* src);
+        static void deserialize(PingPacket* dest, const uint8_t* src);
+        static const size_t SIZE = 6;
+        uint16_t packetType = e_Ping;
+        uint16_t value;
+    } PingPacket;
 
 }
 #endif

@@ -26,6 +26,7 @@ namespace ETFTP
         pthread_mutex_t *portMutex;
         int *clientSockets;
         pthread_t *clientThreads;
+        bool *clientThreadOpened;
 
         pthread_t listenerThreadId;
         uint16_t numPorts;
@@ -40,8 +41,6 @@ namespace ETFTP
         std::unordered_map<std::string, FileMutex> fileLocks;
 
         LoginSystem loginSystem;
-
-        LFUCache<uint16_t, Buffer> keyTable;
 
         volatile bool stopped;
 

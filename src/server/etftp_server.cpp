@@ -19,30 +19,36 @@
 namespace ETFTP
 {
 
-    const in_addr_t Server::SERVER_IP_ADDRESS = getIpAddress();
+    const in_addr_t Server::SERVER_IP_ADDRESS = INADDR_ANY;
     const std::string Server::FILESYSTEM_ROOT = std::string(getenv("ETFTP_ROOT")) + "/filesystem";
 
     void *Server::clientThread(void *a)
     {
-        if (!a)
+        Server *server = static_cast<Server *>(a);
+        if (!server)
         {
             return NULL;
         }
+
+        printf("Client connected");
         return NULL;
     }
 
     void *Server::listenerThread(void *a)
     {
         Server *server = static_cast<Server *>(a);
+        LFUCache<uint16_t, Buffer> keyTable(1024);
 
         struct sockaddr_in source_addr;
-        socklen_t source_addr_len;
-        unsigned char buffer[sizeof(LoginRequestPacket_t)];
-        LoginResponsePacket_t loginResponse;
+        socklen_t source_addr_len = sizeof(source_addr);
+        uint8_t buffer[1024];
+        LoginRequestPacket loginRequest;
+        LoginResponsePacket loginResponse;
         while (!server->isStopped())
         {
-            memset(&buffer, 0, sizeof(LoginRequestPacket_t));
-            memset(&loginResponse, 0, sizeof(LoginResponsePacket_t));
+            memset(&buffer, 0, LoginRequestPacket::SIZE);
+            memset(&loginRequest, 0, sizeof(LoginRequestPacket));
+            memset(&loginResponse, 0, sizeof(LoginResponsePacket));
             loginResponse.packetType = e_LoginResponse;
             struct pollfd pfd[1];
             pfd[0].fd = server->listenerSocket;
@@ -63,28 +69,35 @@ namespace ETFTP
                 continue;
             }
 
-            int bytes = recvfrom(server->listenerSocket, buffer, sizeof(LoginRequestPacket_t), 0, (struct sockaddr *)&source_addr, &source_addr_len);
+            int bytes = recvfrom(server->listenerSocket, buffer, LoginRequestPacket::SIZE, 0, (struct sockaddr *)&source_addr, &source_addr_len);
 
             if (bytes < 0)
             {
-                // Error
+                if (server->stopped)
+                {
+                    break;
+                }
+                fprintf(stderr, "Recvfrom error\n");
                 continue;
             }
 
-            if (bytes != sizeof(LoginRequestPacket_t))
+            if (bytes != LoginRequestPacket::SIZE)
             {
-                if(bytes == sizeof(PingPacket_t)) {
+                if (bytes == PingPacket::SIZE)
+                {
+                    PingPacket pingPacket;
+                    PingPacket::deserialize(&pingPacket, buffer);
                     sendto(server->listenerSocket, buffer, bytes, 0, (const sockaddr *)&source_addr, source_addr_len);
+                    printf("PING received from port %d with value %d\n", static_cast<int>(ntohs(source_addr.sin_port)), static_cast<int>(pingPacket.value));
+                }
+                else
+                {
+                    printf("Received %d bytes\n", bytes);
                 }
                 continue;
             }
 
-            LoginRequestPacket_t* loginRequestPtr = reinterpret_cast<LoginRequestPacket_t*>(buffer);
-            LoginRequestPacket_t& loginRequest = *loginRequestPtr;
-
-            loginRequest.packetType = ntohs(loginRequest.packetType);
-            loginRequest.username[32] = '\0';
-            loginRequest.password[64] = '\0';
+            LoginRequestPacket::deserialize(&loginRequest, buffer);
 
             if (loginRequest.packetType != PacketTypes::e_LoginRequest)
             {
@@ -92,17 +105,72 @@ namespace ETFTP
                 continue;
             }
 
+            if (loginRequest.step == 1)
+            {
+                Buffer m1(98);
+                randomMask(m1);
+
+                uint16_t r = randomInt16();
+                keyTable.put(r, m1);
+
+                Buffer Am1(98); // A ^ m1
+                memcpy(m1.data(), loginRequest.data, 98);
+
+                Am1 ^= m1;
+
+                memcpy(loginResponse.data, Am1.data(), 98);
+
+                loginResponse.keyId = r;
+                loginResponse.step = htons(1);
+                LoginResponsePacket::serialize(buffer, &loginResponse);
+
+                sendto(server->listenerSocket, &buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&source_addr, source_addr_len);
+                continue;
+            }
+            else if (loginRequest.step == 2)
+            {
+                Buffer *m1_p = keyTable.get(loginRequest.keyId);
+                if (m1_p == NULL)
+                {
+                    // Key not there
+                    continue;
+                }
+                Buffer &m1 = *m1_p;
+                if (m1.size() != 98)
+                {
+                    continue;
+                }
+
+                Buffer Am1(98); // A ^ m1
+                memcpy(m1.data(), loginRequest.data, 98);
+
+                Buffer A = Am1 ^ m1;
+                memcpy(loginRequest.data, A.data(), 98);
+            }
+            else
+            {
+                continue;
+            }
+
+            loginRequest.step = 2;
+
             // Check sucessful login
-            std::string username(loginRequest.username);
-            std::string password(loginRequest.password);
-            loginResponse.packetType = PacketTypes::e_LoginResponse;
+            char *user = reinterpret_cast<char *>(loginRequest.data);
+            char *pass = reinterpret_cast<char *>(loginRequest.data + 33);
+            user[32] = '\0';
+            user[97] = '\0';
+
+            std::string username(user);
+            std::string password(pass);
             bool loginSuccess = server->tryLogin(username, password) == 1;
             if (!loginSuccess)
             {
                 // Login failed
+                loginResponse.step = 2;
                 loginResponse.port = 0;
                 loginResponse.status = 0;
-                sendto(server->listenerSocket, &loginResponse, sizeof(loginResponse), 0, (const sockaddr *)&source_addr, source_addr_len);
+                LoginResponsePacket::serialize(buffer, &loginResponse);
+                sendto(server->listenerSocket, buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&source_addr, source_addr_len);
                 continue;
             }
 
@@ -120,19 +188,24 @@ namespace ETFTP
                 }
             }
 
-            if (!found)
+            if (found)
             {
-                // No port found
-                loginResponse.port = 0;
-                loginResponse.status = htons(2);
-                sendto(server->listenerSocket, &loginResponse, sizeof(loginResponse), 0, (const sockaddr *)&source_addr, source_addr_len);
+                loginResponse.port = portIdx;
+                loginResponse.status = 1;
+
+                pthread_create(&(server->clientThreads[portIdx]), NULL, clientThread, server);
+            }
+            else
+            {
+                loginResponse.status = 2;
+                sendto(server->listenerSocket, &loginResponse, LoginResponsePacket::SIZE, 0, (const sockaddr *)&source_addr, source_addr_len);
                 continue;
             }
 
-            // Send success with port
-            loginResponse.port = htons(portIdx);
-            loginResponse.status = htons(1);
-            sendto(server->listenerSocket, &loginResponse, sizeof(loginResponse), 0, (const sockaddr *)&source_addr, source_addr_len);
+            LoginResponsePacket::serialize(buffer, &loginResponse);
+
+            // Send response
+            sendto(server->listenerSocket, buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&source_addr, source_addr_len);
         }
 
         return NULL;
@@ -146,11 +219,12 @@ namespace ETFTP
         this->numPorts = this->endPort - this->startPort + 1;
         this->serverAddress.sin_family = AF_INET;
         this->serverAddress.sin_addr.s_addr = SERVER_IP_ADDRESS;
-        this->serverAddress.sin_port = htons(this->startPort);
+        this->serverAddress.sin_port = htons(this->listenerPort);
         this->ports = new sockaddr_in[this->numPorts];
         this->portMutex = new pthread_mutex_t[this->numPorts];
         this->clientSockets = new int[this->numPorts];
         this->clientThreads = new pthread_t[this->numPorts];
+        this->clientThreadOpened = new bool[this->numPorts];
         this->loginSystem = LoginSystem();
         this->stopped = true;
 
@@ -161,6 +235,8 @@ namespace ETFTP
             this->ports[i].sin_family = AF_INET;
             this->ports[i].sin_addr.s_addr = Server::SERVER_IP_ADDRESS;
             this->ports[i].sin_port = htons(p + i);
+            this->clientThreads[i] = 0;
+            this->clientThreadOpened[i] = false;
 
             pthread_mutex_init(&(this->portMutex[i]), NULL);
         }
@@ -172,6 +248,7 @@ namespace ETFTP
         delete[] this->portMutex;
         delete[] this->clientSockets;
         delete[] this->clientThreads;
+        delete[] this->clientThreadOpened;
     }
 
     bool Server::isStopped() const
@@ -191,7 +268,7 @@ namespace ETFTP
         this->listenerSocket = socket(AF_INET, SOCK_DGRAM, 0);
         if (bind(this->listenerSocket, (const sockaddr *)&this->serverAddress, sizeof(this->serverAddress)) < 0)
         {
-            perror("Bind()\n");
+            perror("Bind() failed\n");
             return false;
         }
 
@@ -222,12 +299,21 @@ namespace ETFTP
         this->loginSystem.stop();
         this->stopped = true;
         close(this->listenerSocket);
+        pthread_join(this->listenerThreadId, NULL);
+
+        for (int i = 0; i < this->numPorts; ++i)
+        {
+            pthread_mutex_lock(&this->portMutex[i]);
+            if (this->clientThreadOpened[i])
+            {
+                pthread_join(this->clientThreads[i], NULL);
+            }
+        }
+
         for (int i = 0; i < this->numPorts; ++i)
         {
             close(this->clientSockets[i]);
         }
-
-        pthread_join(this->listenerThreadId, NULL);
         return true;
     }
 
