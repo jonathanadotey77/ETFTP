@@ -2,7 +2,7 @@ CXX = clang++
 CXXFLAGS = -Wall -Wextra -g
 
 SERVER_LINKS = -lssl -lcrypto -lpthread -lsqlite3 -lcurl
-CLIENT_LINKS = -lssl -lcrypto -lsqlite3 -lcurl
+CLIENT_LINKS = -lssl -lcrypto -lcurl
 
 SERVER_SOURCES := $(wildcard src/server/*.cpp)
 CLIENT_SOURCES := $(wildcard src/client/*.cpp)
