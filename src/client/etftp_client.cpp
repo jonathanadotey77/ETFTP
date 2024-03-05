@@ -64,8 +64,8 @@ namespace ETFTP
 
         loginRequest.packetType = e_LoginRequest;
         loginRequest.step = 1;
-        memcpy(loginRequest.data, username.c_str(), std::min(username.size(), 32UL));
-        memcpy(loginRequest.data + 33, hashedPassword.c_str(), std::min(hashedPassword.size(), 64UL));
+        memcpy(loginRequest.data, username.c_str(), std::min(username.size(), static_cast<size_t>(32)));
+        memcpy(loginRequest.data + 33, hashedPassword.c_str(), std::min(hashedPassword.size(), static_cast<size_t>(64)));
         Buffer m2(98);
         randomMask(m2);
 
