@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <poll.h>
 #include <termios.h>
-#include "../common/etftp_loginsystem.h"
+#include "../common/etftp_loginstatus.h"
 
 static void setStdinEcho(bool enable) {
     struct termios tty;
@@ -154,7 +154,7 @@ namespace ETFTP
 
         LoginResponsePacket::deserialize(&loginResponse, buffer);
 
-        if(loginResponse.packetType != e_LoginResponse) {
+        if(loginResponse.packetType != PacketTypes::e_LoginResponse) {
             printf("Bad type\n");
             return false;
         }
@@ -164,7 +164,7 @@ namespace ETFTP
             return false;
         }
 
-        if(loginResponse.status == LoginSystem::e_Success) {
+        if(loginResponse.status == LoginStatus::e_Success) {
             return true;
         }
 

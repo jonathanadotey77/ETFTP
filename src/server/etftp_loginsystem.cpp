@@ -3,7 +3,7 @@
 
 typedef struct LoginStruct
 {
-    ETFTP::LoginSystem::Status status; // 0 if user not found; 1 if login success; 2 if incorrect password
+    ETFTP::LoginStatus status; // 0 if user not found; 1 if login success; 2 if incorrect password
     const std::string *password;
 } LoginStruct;
 
@@ -16,11 +16,11 @@ static int loginCallback(void *data, int argc, char **argv, char **)
         std::string temp(argv[i]);
         if (temp == *loginStruct->password)
         {
-            loginStruct->status = ETFTP::LoginSystem::Status::e_Success;
+            loginStruct->status = ETFTP::LoginStatus::e_Success;
         }
         else
         {
-            loginStruct->status = ETFTP::LoginSystem::Status::e_IncorrectPassword;
+            loginStruct->status = ETFTP::LoginStatus::e_IncorrectPassword;
         }
     }
     return 0;
@@ -59,12 +59,12 @@ namespace ETFTP
         sqlite3_close(dbHandle);
     }
 
-    LoginSystem::Status LoginSystem::tryLogin(const std::string &username, const std::string &password)
+    LoginStatus LoginSystem::tryLogin(const std::string &username, const std::string &password)
     {
         char sql[512] = {0};
         sprintf(sql, "SELECT password FROM USERS WHERE username = '%s';", username.c_str());
         LoginStruct loginStruct;
-        loginStruct.status = ETFTP::LoginSystem::Status::e_NoSuchUser;
+        loginStruct.status = LoginStatus::e_NoSuchUser;
         loginStruct.password = &password;
         sqlite3_exec(dbHandle, sql, loginCallback, &loginStruct, NULL);
         memset(sql, 0, 512);
@@ -72,12 +72,12 @@ namespace ETFTP
         return loginStruct.status;
     }
 
-    LoginSystem::Status LoginSystem::registerUser(const std::string &username, const std::string &password)
+    LoginStatus LoginSystem::registerUser(const std::string &username, const std::string &password)
     {
-        LoginSystem::Status rc = this->tryLogin(username, password);
+        LoginStatus rc = this->tryLogin(username, password);
         if (rc != e_NoSuchUser)
         {
-            return e_UserAlreadyExists;
+            return LoginStatus::e_UserAlreadyExists;
         }
 
         char sql[512] = {0};
@@ -86,14 +86,14 @@ namespace ETFTP
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 
-        return e_Success;
+        return LoginStatus::e_Success;
     }
 
-    LoginSystem::Status LoginSystem::changePassword(const std::string &username,
+    LoginStatus LoginSystem::changePassword(const std::string &username,
                                                     const std::string &oldPassword,
                                                     const std::string &newPassword)
     {
-        LoginSystem::Status rc = this->tryLogin(username, oldPassword);
+        LoginStatus rc = this->tryLogin(username, oldPassword);
         if(rc == e_IncorrectPassword || rc == e_NoSuchUser) {
             return rc;
         }
@@ -104,7 +104,7 @@ namespace ETFTP
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 
-        return e_Success;
+        return LoginStatus::e_Success;
     }
 
 };

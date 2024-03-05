@@ -2,8 +2,9 @@
 #define ETFTP_SERVER_H
 
 #include "etftp_filemutex.h"
-#include "../common/etftp_loginsystem.h"
 #include "etftp_lfucache.h"
+#include "etftp_loginsystem.h"
+#include "../common/etftp_loginstatus.h"
 #include "../common/etftp_buffer.h"
 
 #include <arpa/inet.h>
@@ -52,9 +53,9 @@ namespace ETFTP
         bool stop();
         bool isStopped() const;
 
-        LoginSystem::Status tryLogin(const std::string &username, const std::string &password);
-        LoginSystem::Status registerUser(const std::string &username, const std::string &password);
-        LoginSystem::Status changePassword(const std::string &username,
+        LoginStatus tryLogin(const std::string &username, const std::string &password);
+        LoginStatus registerUser(const std::string &username, const std::string &password);
+        LoginStatus changePassword(const std::string &username,
                                            const std::string &oldPassword,
                                            const std::string &newPassword);
 

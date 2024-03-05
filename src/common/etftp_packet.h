@@ -79,7 +79,7 @@ namespace ETFTP
         uint16_t packetType = e_LoginRequest;
         uint16_t step;
         uint16_t keyId;
-        unsigned char data[98];
+        uint8_t data[98];
 
         static const size_t SIZE = sizeof(packetType) + sizeof(step) + sizeof(keyId) + sizeof(data);
         static void serialize(uint8_t* dest, const LoginRequestPacket* src);
@@ -96,7 +96,7 @@ namespace ETFTP
         uint16_t keyId;
         uint16_t status;
         uint16_t port;
-        unsigned char data[98];
+        uint8_t data[98];
 
         static const size_t SIZE = sizeof(packetType) + sizeof(step) + sizeof(keyId) + sizeof(status) + sizeof(port) + sizeof(data);
         static void serialize(uint8_t* dest, const LoginResponsePacket* src);

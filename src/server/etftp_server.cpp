@@ -205,13 +205,13 @@ namespace ETFTP
 
             std::string username(user);
             std::string password(pass);
-            bool loginSuccess = server->tryLogin(username, password) == LoginSystem::Status::e_Success;
+            bool loginSuccess = server->tryLogin(username, password) == LoginStatus::e_Success;
             if (!loginSuccess)
             {
                 // Login failed
                 loginResponse.step = 2;
                 loginResponse.port = 0;
-                loginResponse.status = LoginSystem::Status::e_IncorrectPassword;
+                loginResponse.status = LoginStatus::e_IncorrectPassword;
                 LoginResponsePacket::serialize(buffer, &loginResponse);
                 sendto(server->listenerSocket, buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&sourceAddr, sourceAddrLen);
                 printf("Login failed, incorrect password\n");
@@ -237,7 +237,7 @@ namespace ETFTP
             if (found)
             {
                 loginResponse.port = portIdx;
-                loginResponse.status = LoginSystem::Status::e_Success;
+                loginResponse.status = LoginStatus::e_Success;
                 printf("Login success!\n");
                 ClientThreadArg* arg = new ClientThreadArg;
                 arg->server = server;
@@ -249,7 +249,7 @@ namespace ETFTP
             }
             else
             {
-                loginResponse.status = LoginSystem::Status::e_NoAvailablePort;
+                loginResponse.status = LoginStatus::e_NoAvailablePort;
             }
 
             LoginResponsePacket::serialize(buffer, &loginResponse);
@@ -371,17 +371,17 @@ namespace ETFTP
         return true;
     }
 
-    LoginSystem::Status Server::tryLogin(const std::string &username, const std::string &password)
+    LoginStatus Server::tryLogin(const std::string &username, const std::string &password)
     {
         return this->loginSystem.tryLogin(username, password);
     }
 
-    LoginSystem::Status Server::registerUser(const std::string &username, const std::string &password)
+    LoginStatus Server::registerUser(const std::string &username, const std::string &password)
     {
         return this->loginSystem.registerUser(username, password);
     }
 
-    LoginSystem::Status Server::changePassword(const std::string &username,
+    LoginStatus Server::changePassword(const std::string &username,
                                                const std::string &oldPassword,
                                                const std::string &newPassword)
     {
@@ -483,9 +483,9 @@ int main(int argc, char *argv[])
             }
 
             ETFTP::hashPassword(password, hashedPassword);
-            ETFTP::LoginSystem::Status rc = server.registerUser(username, hashedPassword);
+            ETFTP::LoginStatus rc = server.registerUser(username, hashedPassword);
 
-            if (rc == ETFTP::LoginSystem::Status::e_Success)
+            if (rc == ETFTP::LoginStatus::e_Success)
             {
                 printf("Successfully registered user '%s'\n", username.c_str());
             }
@@ -503,16 +503,16 @@ int main(int argc, char *argv[])
 
             ETFTP::hashPassword(password, hashedPassword);
 
-            ETFTP::LoginSystem::Status rc = server.tryLogin(username, hashedPassword);
-            if (rc == ETFTP::LoginSystem::Status::e_Success)
+            ETFTP::LoginStatus rc = server.tryLogin(username, hashedPassword);
+            if (rc == ETFTP::LoginStatus::e_Success)
             {
                 printf("Success\n");
             }
-            else if (rc == ETFTP::LoginSystem::Status::e_IncorrectPassword)
+            else if (rc == ETFTP::LoginStatus::e_IncorrectPassword)
             {
                 printf("Incorrect password\n");
             }
-            else if (rc == ETFTP::LoginSystem::Status::e_NoSuchUser)
+            else if (rc == ETFTP::LoginStatus::e_NoSuchUser)
             {
                 printf("User '%s' does not exist\n", username.c_str());
             }
@@ -529,17 +529,17 @@ int main(int argc, char *argv[])
             ETFTP::hashPassword(oldPassword, hashedOldPassword);
             ETFTP::hashPassword(newPassword, hashedNewPassword);
 
-            ETFTP::LoginSystem::Status rc = server.changePassword(username, hashedOldPassword, hashedNewPassword);
+            ETFTP::LoginStatus rc = server.changePassword(username, hashedOldPassword, hashedNewPassword);
 
-            if (rc == ETFTP::LoginSystem::Status::e_Success)
+            if (rc == ETFTP::LoginStatus::e_Success)
             {
                 printf("Success\n");
             }
-            else if (rc == ETFTP::LoginSystem::Status::e_IncorrectPassword)
+            else if (rc == ETFTP::LoginStatus::e_IncorrectPassword)
             {
                 printf("Incorrect password\n");
             }
-            else if (rc == ETFTP::LoginSystem::Status::e_NoSuchUser)
+            else if (rc == ETFTP::LoginStatus::e_NoSuchUser)
             {
                 printf("User '%s' does not exist\n", username.c_str());
             }
