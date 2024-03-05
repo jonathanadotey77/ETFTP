@@ -5,6 +5,19 @@
 #include "etftp_client.h"
 #include <arpa/inet.h>
 #include <poll.h>
+#include <termios.h>
+#include "../common/etftp_loginsystem.h"
+
+static void setStdinEcho(bool enable) {
+    struct termios tty;
+    tcgetattr(STDIN_FILENO, &tty);
+    if( !enable )
+        tty.c_lflag &= ~ECHO;
+    else
+        tty.c_lflag |= ECHO;
+
+    (void) tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+}
 
 namespace ETFTP
 {
@@ -13,7 +26,6 @@ namespace ETFTP
     Client::Client(uint16_t port)
     {
         this->port = port;
-        printf("Port: %d\n", port);
 
         this->serverAddress.sin_family = AF_INET;
         this->serverAddress.sin_addr.s_addr = CLIENT_IP_ADDRESS;
@@ -45,7 +57,120 @@ namespace ETFTP
 
     bool Client::login(const std::string &username, const std::string &password)
     {
-        return true;
+        LoginRequestPacket loginRequest;
+        std::string hashedPassword;
+        hashPassword(password, hashedPassword);
+        memset(&loginRequest, 0, sizeof(loginRequest));
+
+        loginRequest.packetType = e_LoginRequest;
+        loginRequest.step = 1;
+        memcpy(loginRequest.data, username.c_str(), std::min(username.size(), 32UL));
+        memcpy(loginRequest.data + 33, hashedPassword.c_str(), std::min(hashedPassword.size(), 64UL));
+        Buffer m2(98);
+        randomMask(m2);
+
+        for(size_t i = 0; i < 98; ++i) {
+            loginRequest.data[i] ^= m2[i];
+        }
+
+        uint8_t buffer[512] = {0};
+
+        LoginRequestPacket::serialize(buffer, &loginRequest);
+        sendto(this->sd, buffer, LoginRequestPacket::SIZE, 0, (const struct sockaddr*)&this->serverAddress, sizeof(this->serverAddress));
+
+        struct pollfd pfd[1];
+        pfd[0].fd = this->sd;
+        pfd[0].events = POLLIN;
+        pfd[0].revents = 0;
+
+        int rc = poll(pfd, 1, 3000);
+
+        if (rc == -1)
+        {
+            // Poll Error
+            perror("Poll Error");
+            return false;
+        }
+        else if (rc == 0)
+        {
+            return false;
+        }
+
+        struct sockaddr_in sourceAddress;
+        socklen_t sourceAddressLen = sizeof(sourceAddress);
+
+        int bytes = recvfrom(this->sd, buffer, LoginResponsePacket::SIZE, 0, (struct sockaddr*)&sourceAddress, &sourceAddressLen);
+
+        if(bytes != LoginResponsePacket::SIZE) {
+            printf("Bad size\n");
+            return false;
+        }
+
+        LoginResponsePacket loginResponse;
+        LoginResponsePacket::deserialize(&loginResponse, buffer);
+
+        if(loginResponse.packetType != e_LoginResponse) {
+            printf("Bad type\n");
+            return false;
+        }
+
+        if(loginResponse.step != 1) {
+            printf("Not step 1 [%d]\n", (int)loginResponse.step);
+            return false;
+        }
+
+        loginRequest.step = 2;
+        loginRequest.keyId = loginResponse.keyId;
+        for(size_t i = 0; i < 98; ++i) {
+            loginRequest.data[i] = loginResponse.data[i] ^ m2[i];
+        }
+
+        LoginRequestPacket::serialize(buffer, &loginRequest);
+        sendto(this->sd, buffer, LoginRequestPacket::SIZE, 0, (const struct sockaddr*)&this->serverAddress, sizeof(this->serverAddress));
+
+        pfd[0].fd = this->sd;
+        pfd[0].events = POLLIN;
+        pfd[0].revents = 0;
+
+        rc = poll(pfd, 1, 3000);
+
+        if (rc == -1)
+        {
+            // Poll Error
+            perror("Poll Error");
+            return false;
+        }
+        else if (rc == 0)
+        {
+            return false;
+        }
+
+        sourceAddressLen = sizeof(sourceAddress);
+        bytes = recvfrom(this->sd, buffer, LoginResponsePacket::SIZE, 0, (struct sockaddr*)&sourceAddress, &sourceAddressLen);
+
+        if(bytes != LoginResponsePacket::SIZE) {
+            return false;
+        }
+
+        LoginResponsePacket::deserialize(&loginResponse, buffer);
+
+        if(loginResponse.packetType != e_LoginResponse) {
+            printf("Bad type\n");
+            return false;
+        }
+
+        if(loginResponse.step != 2) {
+            printf("Bad step\n");
+            return false;
+        }
+
+        if(loginResponse.status == LoginSystem::e_Success) {
+            return true;
+        }
+
+        printf("Bad everything [%d]\n", loginResponse.status);
+
+        return false;
     }
 
     bool Client::ping(int value)
@@ -81,7 +206,7 @@ namespace ETFTP
         {
             // Poll Error
             perror("Poll Error");
-            return false;;
+            return false;
         }
         else if (rc == 0)
         {
@@ -166,6 +291,25 @@ int main(int argc, char* argv[])
             } else {
                 printf("Ping failed\n");
             }
+        } else if(input == "login") {
+            printf("Username: ");
+            std::string username;
+            std::string password;
+            std::cin >> username;
+
+            printf("Password: ");
+            setStdinEcho(false);
+            std::cin >> password;
+            setStdinEcho(true);
+            std::cout << std::endl;
+
+            if(client.login(username, password)) {
+                printf("Success\n");
+            } else {
+                printf("Login failed\n");
+            }
+
+            
         } else {
             continue;
         }

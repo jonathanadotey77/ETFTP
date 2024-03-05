@@ -15,6 +15,7 @@ namespace ETFTP
             e_Success,
             e_IncorrectPassword,
             e_NoSuchUser,
+            e_NoAvailablePort,
             e_UserAlreadyExists,
             e_Error
         };

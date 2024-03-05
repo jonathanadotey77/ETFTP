@@ -48,8 +48,8 @@ namespace ETFTP
         uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
         uint16_t step = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
         uint16_t keyId = ntohs(*(reinterpret_cast<const uint16_t *>(src + 4)));
-        uint16_t status = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
-        uint16_t port = ntohs(*(reinterpret_cast<const uint16_t *>(src + 4)));
+        uint16_t status = ntohs(*(reinterpret_cast<const uint16_t *>(src + 6)));
+        uint16_t port = ntohs(*(reinterpret_cast<const uint16_t *>(src + 8)));
 
         dest->packetType = packetType;
         dest->step = step;

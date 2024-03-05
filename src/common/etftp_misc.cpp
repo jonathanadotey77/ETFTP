@@ -8,10 +8,12 @@
 namespace ETFTP
 {
 
-    std::string bytesToHexString(const unsigned char *bytes, size_t length) {
+    std::string bytesToHexString(const unsigned char *bytes, size_t length)
+    {
         std::stringstream ss;
         ss << std::hex << std::setfill('0');
-        for (size_t i = 0; i < length; ++i) {
+        for (size_t i = 0; i < length; ++i)
+        {
             ss << std::setw(2) << static_cast<unsigned int>(bytes[i]);
         }
         return ss.str();
@@ -91,6 +93,14 @@ namespace ETFTP
             std::cerr << "Failed to get public IP address" << std::endl;
         }
         return response;
+    }
+
+    std::string getIpString(const struct sockaddr_in &address)
+    {
+        char ip[80] = {0};
+        inet_ntop(AF_INET, &address.sin_addr.s_addr, ip, 80);
+        sprintf(ip, "%s:%d", ip, static_cast<int>(ntohs(address.sin_port)));
+        return std::string(ip);
     }
 
 }

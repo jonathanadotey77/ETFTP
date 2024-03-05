@@ -2,7 +2,7 @@
 #define ETFTP_SERVER_H
 
 #include "etftp_filemutex.h"
-#include "etftp_loginsystem.h"
+#include "../common/etftp_loginsystem.h"
 #include "etftp_lfucache.h"
 #include "../common/etftp_buffer.h"
 
@@ -26,7 +26,7 @@ namespace ETFTP
         pthread_mutex_t *portMutex;
         int *clientSockets;
         pthread_t *clientThreads;
-        bool *clientThreadOpened;
+        volatile bool *clientThreadOpened;
 
         pthread_t listenerThreadId;
         uint16_t numPorts;
