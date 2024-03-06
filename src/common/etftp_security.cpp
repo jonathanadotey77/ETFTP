@@ -60,7 +60,6 @@ namespace ETFTP
         hashedPassword = bytesToHexString(digest, SHA256_DIGEST_LENGTH);
     }
 
-
     bool validPassword(const std::string& password) {
         if(password.length() < 8 || password.length() > 32) {
             return false;
@@ -69,4 +68,15 @@ namespace ETFTP
         return true;
     }
 
+    std::string getSalt() {
+        uint8_t buffer[8] = {0};
+        RAND_bytes(buffer, 8);
+        return bytesToHexString(buffer, 8);
+    }
+
+    std::string saltedHash(const std::string& hashedPassword, const std::string& salt) {
+        std::string salted;
+        hashPassword(hashedPassword + salt, salted);
+        return salted;
+    }
 }

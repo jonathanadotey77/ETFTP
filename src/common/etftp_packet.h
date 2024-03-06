@@ -9,19 +9,15 @@ namespace ETFTP
 
     enum PacketTypes
     {
-        e_None,
-        e_ReadRequest,
-        e_WriteRequest,
-        e_DeleteRequest,
-        e_FileData,
-        e_Ack,
-        e_Error,
-        e_LoginRequest,
-        e_LoginResponse,
-        e_ListRequest,
-        e_ListResponse,
-        e_Ping,
-        e_Logout
+        e_ReadRequest = 1,
+        e_WriteRequest = 2,
+        e_FileData = 3,
+        e_Ack = 4,
+        e_Error = 5,
+        e_Logout = 6,
+        e_LoginRequest = 7,
+        e_LoginResponse = 8,
+        e_Ping = 9
     };
 
     typedef struct ReadRequestPacket
@@ -39,14 +35,6 @@ namespace ETFTP
         
         static const size_t SIZE = sizeof(packetType) + sizeof(filePath);
     } WriteRequestPacket;
-
-    typedef struct DeleteRequestPacket
-    {
-        uint16_t packetType = e_DeleteRequest;
-        int8_t filePath[257];
-
-        static const size_t SIZE = sizeof(packetType) + sizeof(filePath);
-    } DeleteRequestPacket;
 
     typedef struct ErrorPacket
     {

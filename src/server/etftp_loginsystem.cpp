@@ -1,4 +1,5 @@
 #include "etftp_loginsystem.h"
+#include "../common/etftp_security.h"
 #include <string.h>
 
 typedef struct LoginStruct
@@ -7,22 +8,21 @@ typedef struct LoginStruct
     const std::string *password;
 } LoginStruct;
 
-static int loginCallback(void *data, int argc, char **argv, char **)
+static int loginCallback(void *data, int, char **argv, char **)
 {
     LoginStruct *loginStruct = static_cast<LoginStruct *>(data);
 
-    for (int i = 0; i < argc; ++i)
-    {
-        std::string temp(argv[i]);
-        if (temp == *loginStruct->password)
-        {
-            loginStruct->status = ETFTP::LoginStatus::e_Success;
-        }
-        else
-        {
-            loginStruct->status = ETFTP::LoginStatus::e_IncorrectPassword;
-        }
+    std::string password(argv[0]);
+    std::string salt(argv[1]);
+
+    std::string saltedPassword = ETFTP::saltedHash(*loginStruct->password, salt);
+
+    if(saltedPassword == password) {
+        loginStruct->status = ETFTP::LoginStatus::e_Success;
+    } else {
+        loginStruct->status = ETFTP::LoginStatus::e_IncorrectPassword;
     }
+
     return 0;
 }
 
@@ -42,7 +42,8 @@ namespace ETFTP
 
         const char *sql = "CREATE TABLE IF NOT EXISTS USERS ("
                           "username TEXT PRIMARY KEY,"
-                          "password TEXT NOT NULL);";
+                          "password TEXT NOT NULL,"
+                          "salt TEXT NOT NULL);";
         sqlite3_exec(dbHandle, sql, NULL, NULL, &error);
         if (error)
         {
@@ -62,14 +63,18 @@ namespace ETFTP
     LoginStatus LoginSystem::tryLogin(const std::string &username, const std::string &password)
     {
         char sql[512] = {0};
-        sprintf(sql, "SELECT password FROM USERS WHERE username = '%s';", username.c_str());
+        sprintf(sql, "SELECT password, salt FROM USERS WHERE username = '%s';", username.c_str());
         LoginStruct loginStruct;
         loginStruct.status = LoginStatus::e_NoSuchUser;
         loginStruct.password = &password;
         sqlite3_exec(dbHandle, sql, loginCallback, &loginStruct, NULL);
-        memset(sql, 0, 512);
 
-        return loginStruct.status;
+        LoginStatus status = loginStruct.status;
+
+        memset(sql, 0, 512);
+        memset(&loginStruct, 0, sizeof(loginStruct));
+
+        return status;
     }
 
     LoginStatus LoginSystem::registerUser(const std::string &username, const std::string &password)
@@ -80,9 +85,12 @@ namespace ETFTP
             return LoginStatus::e_UserAlreadyExists;
         }
 
+        std::string salt = getSalt();
+        std::string saltedPassword = saltedHash(password, salt);
+
         char sql[512] = {0};
 
-        sprintf(sql, "INSERT INTO USERS (username, password) VALUES ('%s', '%s')", username.c_str(), password.c_str());
+        sprintf(sql, "INSERT INTO USERS (username, password, salt) VALUES ('%s', '%s', '%s')", username.c_str(), saltedPassword.c_str(), salt.c_str());
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 
@@ -100,7 +108,10 @@ namespace ETFTP
 
         char sql[512] = {0};
 
-        sprintf(sql, "UPDATE USERS SET password = '%s' WHERE username = '%s';", newPassword.c_str(), username.c_str());
+        std::string salt = getSalt();
+        std::string saltedPassword = saltedHash(newPassword, salt);
+
+        sprintf(sql, "UPDATE USERS SET password = '%s', salt = '%s' WHERE username = '%s';", saltedPassword.c_str(), salt.c_str(), username.c_str());
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 

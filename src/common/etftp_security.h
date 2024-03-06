@@ -14,6 +14,10 @@ namespace ETFTP
     void hashPassword(const std::string &unhashed, std::string &hashed);
 
     bool validPassword(const std::string& password);
+
+    std::string getSalt();
+
+    std::string saltedHash(const std::string& hashedPassword, const std::string& salt);
 }
 
 #endif
