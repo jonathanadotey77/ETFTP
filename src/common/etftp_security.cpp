@@ -9,13 +9,13 @@
 #include <sstream>
 #include <iomanip>
 
-
 namespace ETFTP
 {
 
     static bool randInitialized = false;
 
-    uint16_t randomInt16() {
+    uint16_t randomInt16()
+    {
         if (!randInitialized)
         {
             RAND_poll();
@@ -23,14 +23,15 @@ namespace ETFTP
         }
 
         uint16_t r = 0;
-        RAND_bytes(reinterpret_cast<unsigned char*>(&r), 2);
+        RAND_bytes(reinterpret_cast<unsigned char *>(&r), 2);
 
         return r;
     }
 
-    void randomMask(Buffer& buffer)
+    void randomMask(Buffer &buffer)
     {
-        if(buffer.size() != 512) {
+        if (buffer.size() != 512)
+        {
             buffer.init(512);
         }
 
@@ -42,7 +43,8 @@ namespace ETFTP
         RAND_bytes(buffer.data(), 512);
     }
 
-    void hashPassword(const std::string& password, std::string& hashedPassword) {
+    void hashPassword(const std::string &password, std::string &hashedPassword)
+    {
         unsigned char digest[SHA256_DIGEST_LENGTH] = {0};
         EVP_MD_CTX *mdctx;
         const EVP_MD *md;
@@ -60,21 +62,25 @@ namespace ETFTP
         hashedPassword = bytesToHexString(digest, SHA256_DIGEST_LENGTH);
     }
 
-    bool validPassword(const std::string& password) {
-        if(password.length() < 8 || password.length() > 32) {
+    bool validPassword(const std::string &password)
+    {
+        if (password.length() < 8 || password.length() > 32)
+        {
             return false;
         }
 
         return true;
     }
 
-    std::string getSalt() {
+    std::string getSalt()
+    {
         uint8_t buffer[8] = {0};
         RAND_bytes(buffer, 8);
         return bytesToHexString(buffer, 8);
     }
 
-    std::string saltedHash(const std::string& hashedPassword, const std::string& salt) {
+    std::string saltedHash(const std::string &hashedPassword, const std::string &salt)
+    {
         std::string salted;
         hashPassword(hashedPassword + salt, salted);
         return salted;

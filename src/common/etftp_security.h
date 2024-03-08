@@ -9,15 +9,15 @@ namespace ETFTP
 
     uint16_t randomInt16();
 
-    void randomMask(Buffer& buffer);
+    void randomMask(Buffer &buffer);
 
     void hashPassword(const std::string &unhashed, std::string &hashed);
 
-    bool validPassword(const std::string& password);
+    bool validPassword(const std::string &password);
 
     std::string getSalt();
 
-    std::string saltedHash(const std::string& hashedPassword, const std::string& salt);
+    std::string saltedHash(const std::string &hashedPassword, const std::string &salt);
 }
 
 #endif

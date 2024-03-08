@@ -17,10 +17,13 @@ static int loginCallback(void *data, int, char **argv, char **)
 
     std::string saltedPassword = ETFTP::saltedHash(*loginStruct->password, salt);
 
-    if(saltedPassword == password) {
-        loginStruct->status = ETFTP::LoginStatus::e_Success;
-    } else {
-        loginStruct->status = ETFTP::LoginStatus::e_IncorrectPassword;
+    if (saltedPassword == password)
+    {
+        loginStruct->status = ETFTP::LoginStatus::e_LoginSuccess;
+    }
+    else
+    {
+        loginStruct->status = ETFTP::LoginStatus::e_LoginFailed;
     }
 
     return 0;
@@ -94,15 +97,16 @@ namespace ETFTP
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 
-        return LoginStatus::e_Success;
+        return LoginStatus::e_LoginSuccess;
     }
 
     LoginStatus LoginSystem::changePassword(const std::string &username,
-                                                    const std::string &oldPassword,
-                                                    const std::string &newPassword)
+                                            const std::string &oldPassword,
+                                            const std::string &newPassword)
     {
         LoginStatus rc = this->tryLogin(username, oldPassword);
-        if(rc == e_IncorrectPassword || rc == e_NoSuchUser) {
+        if (rc == e_LoginFailed || rc == e_NoSuchUser)
+        {
             return rc;
         }
 
@@ -115,7 +119,7 @@ namespace ETFTP
         sqlite3_exec(dbHandle, sql, NULL, NULL, NULL);
         memset(sql, 0, 512);
 
-        return LoginStatus::e_Success;
+        return LoginStatus::e_LoginSuccess;
     }
 
 };

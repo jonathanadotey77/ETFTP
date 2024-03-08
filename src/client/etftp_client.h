@@ -10,8 +10,8 @@ namespace ETFTP
     class Client
     {
     public:
-
         static const in_addr_t CLIENT_IP_ADDRESS;
+
     private:
         struct sockaddr_in serverAddress;
         struct sockaddr_in clientAddress;
@@ -25,9 +25,9 @@ namespace ETFTP
         bool start();
         void stop();
 
-        bool login(const std::string& username, const std::string& password);
+        bool login(const std::string &username, const std::string &password);
         bool ping(int value);
-        void setServer(const std::string& serverIpAddress, uint16_t serverPort);
+        void setServer(const std::string &serverIpAddress, uint16_t serverPort);
         void printServerInfo() const;
     };
 

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 #include <arpa/inet.h>
+#include <vector>
 
 namespace ETFTP
 {
@@ -16,8 +17,8 @@ namespace ETFTP
 
     std::string getPublicIpAddress();
 
-    std::string getIpString(const struct sockaddr_in& address);
+    std::string getIpString(const struct sockaddr_in &address);
 
-
+    std::vector<int> kthPermutation(int n, int k);
 }
 #endif

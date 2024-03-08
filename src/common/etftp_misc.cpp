@@ -103,4 +103,31 @@ namespace ETFTP
         return std::string(ip);
     }
 
+    std::vector<int> kthPermutation(int n, int k)
+    {
+        std::vector<int> ans;
+        std::vector<int> v;
+
+        --k;
+
+        int factorial = 1;
+
+        for (int i = 1; i <= n; ++i)
+        {
+            v.push_back(i);
+            factorial *= i;
+        }
+
+        for (int i = 0; i < n; ++i)
+        {
+            factorial /= (n - i);
+            int index = k / factorial;
+            ans.push_back(v[index]);
+            v.erase(v.begin() + index);
+            k %= factorial;
+        }
+
+        return ans;
+    }
+
 }

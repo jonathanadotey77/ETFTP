@@ -56,8 +56,8 @@ namespace ETFTP
         LoginStatus tryLogin(const std::string &username, const std::string &password);
         LoginStatus registerUser(const std::string &username, const std::string &password);
         LoginStatus changePassword(const std::string &username,
-                                           const std::string &oldPassword,
-                                           const std::string &newPassword);
+                                   const std::string &oldPassword,
+                                   const std::string &newPassword);
 
     public:
         static void *listenerThread(void *a);

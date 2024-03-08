@@ -5,11 +5,11 @@ namespace ETFTP
 {
     enum LoginStatus
     {
-        e_Success,
-        e_IncorrectPassword,
-        e_NoSuchUser,
-        e_NoAvailablePort,
-        e_UserAlreadyExists
+        e_LoginFailed = 0,
+        e_LoginSuccess = 1,
+        e_NoAvailablePort = 2,
+        e_NoSuchUser = 3,
+        e_UserAlreadyExists = 4
     };
 }
 

@@ -17,23 +17,26 @@ namespace ETFTP
         e_Logout = 6,
         e_LoginRequest = 7,
         e_LoginResponse = 8,
-        e_Ping = 9
+        e_Ping = 9,
+        e_Key = 10
     };
 
     typedef struct ReadRequestPacket
     {
         uint16_t packetType = e_ReadRequest;
+        uint8_t numKeys;
         int8_t filePath[257];
 
-        static const size_t SIZE = sizeof(packetType) + sizeof(filePath);
+        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(filePath);
     } ReadRequestPacket;
 
     typedef struct WriteRequestPacket
     {
         uint16_t packetType = e_WriteRequest;
+        uint8_t numKeys;
         int8_t filePath[257];
         
-        static const size_t SIZE = sizeof(packetType) + sizeof(filePath);
+        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(filePath);
     } WriteRequestPacket;
 
     typedef struct ErrorPacket
@@ -57,9 +60,9 @@ namespace ETFTP
     typedef struct AckPacket
     {
         uint16_t packetType = e_Ack;
-        uint32_t code;
+        uint32_t value;
 
-        static const size_t SIZE = sizeof(packetType) + sizeof(code);
+        static const size_t SIZE = sizeof(packetType) + sizeof(value);
     } AckPacket;
 
     typedef struct LoginRequestPacket
@@ -107,6 +110,17 @@ namespace ETFTP
         static void serialize(uint8_t* dest, const LogoutPacket* src);
         static void deserialize(LogoutPacket* dest, const uint8_t* src);
     } LogoutPacket;
+
+    typedef struct KeyPacket {
+        uint16_t packetType = e_Key;
+        uint16_t step;
+        uint32_t permutation;
+        uint8_t data[512];
+
+        static const size_t SIZE = sizeof(packetType) + sizeof(step) + sizeof(permutation) + sizeof(data);
+        static void serialize(uint8_t* dest, const KeyPacket* src);
+        static void deserialize(KeyPacket* dest, const uint8_t* src);
+    } KeyPacket;
 
 }
 #endif

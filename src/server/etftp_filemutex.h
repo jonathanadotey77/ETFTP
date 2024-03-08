@@ -10,22 +10,22 @@
 namespace ETFTP
 {
 
-class FileMutex
-{
-public:
-    std::mutex lock;
-    volatile uint64_t value;
+    class FileMutex
+    {
+    public:
+        std::mutex lock;
+        volatile uint64_t value;
 
-public:
-    FileMutex() : value(0) {};
+    public:
+        FileMutex() : value(0){};
 
-    void acquireWriter();
-    void acquireReader();
-    void releaseWriter();
-    void releaseReader();
+        void acquireWriter();
+        void acquireReader();
+        void releaseWriter();
+        void releaseReader();
 
-    bool canDestroy();
-};
+        bool canDestroy();
+    };
 
 }
 

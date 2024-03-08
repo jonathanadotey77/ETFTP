@@ -5,33 +5,35 @@
 #include <list>
 
 template <class Key, class Value>
-class LFUCache {
+class LFUCache
+{
 private:
-
     using Entry = std::pair<Key, Value>;
-    using EntryIterator = typename std::list<std::pair<Key, Value> >::iterator;
+    using EntryIterator = typename std::list<std::pair<Key, Value>>::iterator;
 
     std::unordered_map<Key, EntryIterator> table;
-    std::list<Entry > queue;
+    std::list<Entry> queue;
     size_t maxCapacity;
 
 public:
-
-    LFUCache(size_t capacity=1024) : maxCapacity(capacity) {}
+    LFUCache(size_t capacity = 1024) : maxCapacity(capacity) {}
 
     size_t size() const;
-    Value* get(const Key& key);
-    void put(const Key& key, const Value& value);
+    Value *get(const Key &key);
+    void put(const Key &key, const Value &value);
 };
 
 template <class Key, class Value>
-size_t LFUCache<Key, Value>::size() const {
+size_t LFUCache<Key, Value>::size() const
+{
     return queue.size();
 }
 
 template <class Key, class Value>
-Value* LFUCache<Key, Value>::get(const Key& key) {
-    if(table.find(key) == table.end()) {
+Value *LFUCache<Key, Value>::get(const Key &key)
+{
+    if (table.find(key) == table.end())
+    {
         return NULL;
     }
 
@@ -44,11 +46,15 @@ Value* LFUCache<Key, Value>::get(const Key& key) {
 }
 
 template <class Key, class Value>
-void LFUCache<Key, Value>::put(const Key& key, const Value& value) {
-    if(table.find(key) == table.end()) {
+void LFUCache<Key, Value>::put(const Key &key, const Value &value)
+{
+    if (table.find(key) == table.end())
+    {
         queue.push_front({key, value});
         table[key] = queue.begin();
-    } else {
+    }
+    else
+    {
         EntryIterator itr = table[key];
         queue.push_front(*itr);
         queue.front().second = value;
@@ -56,7 +62,8 @@ void LFUCache<Key, Value>::put(const Key& key, const Value& value) {
         table[key] = queue.begin();
     }
 
-    if(queue.size() > this->maxCapacity) {
+    if (queue.size() > this->maxCapacity)
+    {
         table.erase(queue.back().first);
         queue.pop_back();
     }

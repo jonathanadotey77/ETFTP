@@ -16,8 +16,9 @@
 #include "../common/etftp_packet.h"
 #include "../common/etftp_misc.h"
 
-typedef struct ClientThreadArg {
-    ETFTP::Server* server;
+typedef struct ClientThreadArg
+{
+    ETFTP::Server *server;
     struct sockaddr_in clientAddress;
     uint16_t port;
     int sd;
@@ -31,7 +32,7 @@ namespace ETFTP
 
     void *Server::clientThread(void *a)
     {
-        ClientThreadArg* arg = static_cast<ClientThreadArg*>(a);
+        ClientThreadArg *arg = static_cast<ClientThreadArg *>(a);
         Server *server = arg->server;
         struct sockaddr_in clientAddress = arg->clientAddress;
         uint16_t port = arg->port;
@@ -45,7 +46,8 @@ namespace ETFTP
         socklen_t sourceAddressLen = sizeof(sourceAddress);
         uint8_t buffer[518];
 
-        while(!server->isStopped()) {
+        while (!server->isStopped())
+        {
             struct pollfd pfd[1];
             pfd[0].fd = sd;
             pfd[0].events = POLLIN;
@@ -66,7 +68,7 @@ namespace ETFTP
                 break;
             }
 
-            int bytes = recvfrom(sd, buffer, 518, 0, (struct sockaddr*)&sourceAddress, &sourceAddressLen);
+            int bytes = recvfrom(sd, buffer, 518, 0, (struct sockaddr *)&sourceAddress, &sourceAddressLen);
             printf("Received %d bytes from %s\n", bytes, clientStr.c_str());
         }
 
@@ -160,7 +162,8 @@ namespace ETFTP
                 uint16_t r = randomInt16();
                 keyTable.put(r, m1);
 
-                for(size_t i = 0; i < 98; ++i) {
+                for (size_t i = 0; i < 98; ++i)
+                {
                     loginResponse.data[i] = loginRequest.data[i] ^ m1[i];
                 }
 
@@ -168,7 +171,7 @@ namespace ETFTP
                 loginResponse.step = 1;
                 LoginResponsePacket::serialize(buffer, &loginResponse);
 
-                sendto(server->listenerSocket, &buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&sourceAddr, sourceAddrLen);
+                sendto(server->listenerSocket, buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&sourceAddr, sourceAddrLen);
                 continue;
             }
             else if (loginRequest.step == 2)
@@ -186,7 +189,8 @@ namespace ETFTP
                     continue;
                 }
 
-                for(size_t i = 0; i < 98; ++i) {
+                for (size_t i = 0; i < 98; ++i)
+                {
                     loginRequest.data[i] = loginRequest.data[i] ^ m1[i];
                 }
             }
@@ -205,13 +209,13 @@ namespace ETFTP
 
             std::string username(user);
             std::string password(pass);
-            bool loginSuccess = server->tryLogin(username, password) == LoginStatus::e_Success;
+            bool loginSuccess = server->tryLogin(username, password) == LoginStatus::e_LoginSuccess;
             if (!loginSuccess)
             {
                 // Login failed
                 loginResponse.step = 2;
                 loginResponse.port = 0;
-                loginResponse.status = LoginStatus::e_IncorrectPassword;
+                loginResponse.status = LoginStatus::e_LoginFailed;
                 LoginResponsePacket::serialize(buffer, &loginResponse);
                 sendto(server->listenerSocket, buffer, LoginResponsePacket::SIZE, 0, (const sockaddr *)&sourceAddr, sourceAddrLen);
                 printf("Login failed, incorrect password\n");
@@ -237,9 +241,9 @@ namespace ETFTP
             if (found)
             {
                 loginResponse.port = portIdx;
-                loginResponse.status = LoginStatus::e_Success;
+                loginResponse.status = LoginStatus::e_LoginSuccess;
                 printf("Login success!\n");
-                ClientThreadArg* arg = new ClientThreadArg;
+                ClientThreadArg *arg = new ClientThreadArg;
                 arg->server = server;
                 arg->clientAddress = sourceAddr;
                 arg->port = portIdx;
@@ -382,8 +386,8 @@ namespace ETFTP
     }
 
     LoginStatus Server::changePassword(const std::string &username,
-                                               const std::string &oldPassword,
-                                               const std::string &newPassword)
+                                       const std::string &oldPassword,
+                                       const std::string &newPassword)
     {
         return this->loginSystem.changePassword(username, oldPassword, newPassword);
     }
@@ -486,7 +490,7 @@ int main(int argc, char *argv[])
             ETFTP::hashPassword(password, hashedPassword);
             ETFTP::LoginStatus rc = server.registerUser(username, hashedPassword);
 
-            if (rc == ETFTP::LoginStatus::e_Success)
+            if (rc == ETFTP::LoginStatus::e_LoginSuccess)
             {
                 printf("Successfully registered user '%s'\n", username.c_str());
             }
@@ -505,11 +509,11 @@ int main(int argc, char *argv[])
             ETFTP::hashPassword(password, hashedPassword);
 
             ETFTP::LoginStatus rc = server.tryLogin(username, hashedPassword);
-            if (rc == ETFTP::LoginStatus::e_Success)
+            if (rc == ETFTP::LoginStatus::e_LoginSuccess)
             {
                 printf("Success\n");
             }
-            else if (rc == ETFTP::LoginStatus::e_IncorrectPassword)
+            else if (rc == ETFTP::LoginStatus::e_LoginFailed)
             {
                 printf("Incorrect password\n");
             }
@@ -532,11 +536,11 @@ int main(int argc, char *argv[])
 
             ETFTP::LoginStatus rc = server.changePassword(username, hashedOldPassword, hashedNewPassword);
 
-            if (rc == ETFTP::LoginStatus::e_Success)
+            if (rc == ETFTP::LoginStatus::e_LoginSuccess)
             {
                 printf("Success\n");
             }
-            else if (rc == ETFTP::LoginStatus::e_IncorrectPassword)
+            else if (rc == ETFTP::LoginStatus::e_LoginFailed)
             {
                 printf("Incorrect password\n");
             }

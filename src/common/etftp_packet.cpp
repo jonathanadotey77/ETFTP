@@ -76,4 +76,28 @@ namespace ETFTP
         dest->packetType = packetType;
         dest->value = value;
     }
+
+    void KeyPacket::serialize(uint8_t *dest, const KeyPacket *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint16_t *step = reinterpret_cast<uint16_t *>(dest + 2);
+        uint32_t *permutation = reinterpret_cast<uint32_t *>(dest + 4);
+
+        *packetType = htons(src->packetType);
+        *step = htons(src->step);
+        *permutation = htonl(src->permutation);
+        memcpy(dest + 8, src->data, 512);
+    }
+
+    void KeyPacket::deserialize(KeyPacket *dest, const uint8_t *src)
+    {
+        uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
+        uint16_t step = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
+        uint32_t permutation = ntohs(*(reinterpret_cast<const uint32_t *>(src + 4)));
+
+        dest->packetType = packetType;
+        dest->step = step;
+        dest->permutation = permutation;
+        memcpy(dest->data, src + 8, 512);
+    }
 }

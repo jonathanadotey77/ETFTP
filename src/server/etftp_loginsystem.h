@@ -27,8 +27,8 @@ namespace ETFTP
         LoginStatus registerUser(const std::string &username, const std::string &password);
 
         LoginStatus changePassword(const std::string &username,
-                              const std::string &oldPassword,
-                              const std::string &newPassword);
+                                   const std::string &oldPassword,
+                                   const std::string &newPassword);
     };
 }
 
