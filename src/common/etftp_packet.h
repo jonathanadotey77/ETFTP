@@ -1,8 +1,8 @@
 #ifndef ETFTP_PACKET_H
 #define ETFTP_PACKET_H
 
-#include <string.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace ETFTP
 {

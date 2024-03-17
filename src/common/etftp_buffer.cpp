@@ -1,5 +1,7 @@
 #include "etftp_buffer.h"
+
 #include "etftp_misc.h"
+
 #include <algorithm>
 
 namespace ETFTP

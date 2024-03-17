@@ -1,10 +1,11 @@
 #ifndef ETFTP_LOGINSYSTEM_H
 #define ETFTP_LOGINSYSTEM_H
 
-#include <string>
+#include "../common/etftp_loginstatus.h"
+
 #include <fstream>
 #include <sqlite3.h>
-#include "../common/etftp_loginstatus.h"
+#include <string>
 
 namespace ETFTP
 {

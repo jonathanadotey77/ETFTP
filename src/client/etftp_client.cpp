@@ -1,12 +1,14 @@
-#include <iostream>
-#include <unistd.h>
-#include "../common/etftp_buffer.h"
-#include "../common/etftp_packet.h"
 #include "etftp_client.h"
+
+#include "../common/etftp_buffer.h"
+#include "../common/etftp_loginstatus.h"
+#include "../common/etftp_packet.h"
+
 #include <arpa/inet.h>
+#include <iostream>
 #include <poll.h>
 #include <termios.h>
-#include "../common/etftp_loginstatus.h"
+#include <unistd.h>
 
 static void setStdinEcho(bool enable)
 {

@@ -1,9 +1,10 @@
 #include "etftp_misc.h"
-#include <ifaddrs.h>
-#include <net/if.h>
+
 #include <curl/curl.h>
-#include <sstream>
+#include <ifaddrs.h>
 #include <iomanip>
+#include <net/if.h>
+#include <sstream>
 
 namespace ETFTP
 {

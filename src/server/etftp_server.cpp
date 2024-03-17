@@ -1,20 +1,20 @@
+#include "etftp_server.h"
+
+#include "../common/etftp_buffer.h"
+#include "../common/etftp_misc.h"
+#include "../common/etftp_packet.h"
+#include "../common/etftp_security.h"
+
+#include <arpa/inet.h>
+#include <curl/curl.h>
+#include <ifaddrs.h>
 #include <iostream>
+#include <net/if.h>
 #include <poll.h>
-#include <unistd.h>
-#include <string>
 #include <pthread.h>
 #include <string>
 #include <string.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <ifaddrs.h>
-#include <curl/curl.h>
-
-#include "etftp_server.h"
-#include "../common/etftp_security.h"
-#include "../common/etftp_buffer.h"
-#include "../common/etftp_packet.h"
-#include "../common/etftp_misc.h"
+#include <unistd.h>
 
 typedef struct ClientThreadArg
 {

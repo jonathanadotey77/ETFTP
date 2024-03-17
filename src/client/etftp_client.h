@@ -1,8 +1,8 @@
 #ifndef ETFTP_CLIENT_H
 #define ETFTP_CLIENT_H
 
-#include "../common/etftp_security.h"
 #include "../common/etftp_misc.h"
+#include "../common/etftp_security.h"
 
 namespace ETFTP
 {

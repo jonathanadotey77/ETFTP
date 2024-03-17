@@ -1,8 +1,8 @@
 #ifndef LFUCACHE_H
 #define LFUCACHE_H
 
-#include <unordered_map>
 #include <list>
+#include <unordered_map>
 
 template <class Key, class Value>
 class LFUCache

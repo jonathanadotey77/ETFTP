@@ -1,6 +1,7 @@
 #include "etftp_packet.h"
-#include "string.h"
+
 #include <arpa/inet.h>
+#include <string.h>
 
 namespace ETFTP
 {

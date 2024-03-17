@@ -1,9 +1,9 @@
 #ifndef ETFTP_MISC_H
 #define ETFTP_MISC_H
 
+#include <arpa/inet.h>
 #include <iostream>
 #include <string>
-#include <arpa/inet.h>
 #include <vector>
 
 namespace ETFTP

@@ -1,8 +1,9 @@
 #ifndef ETFTP_SECURITY_H
 #define ETFTP_SECURITY_H
 
-#include <string>
 #include "etftp_buffer.h"
+
+#include <string>
 
 namespace ETFTP
 {
