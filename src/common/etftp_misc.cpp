@@ -131,4 +131,12 @@ namespace ETFTP
         return ans;
     }
 
+    uint32_t factorial(int n) {
+        uint32_t res = 1;
+        for (int i=2; i<=n; i++) {
+            res *= i;
+        }
+        return res;
+    }
+
 }

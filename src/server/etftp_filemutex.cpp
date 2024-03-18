@@ -4,6 +4,10 @@
 
 namespace ETFTP
 {
+    FileMutex::FileMutex() {
+        this->value = 0;
+    }
+    
     void FileMutex::acquireWriter()
     {
         while (true)

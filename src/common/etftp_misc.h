@@ -20,5 +20,7 @@ namespace ETFTP
     std::string getIpString(const struct sockaddr_in &address);
 
     std::vector<int> kthPermutation(int n, int k);
+
+    uint32_t factorial(int n);
 }
 #endif

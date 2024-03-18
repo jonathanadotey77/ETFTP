@@ -26,18 +26,20 @@ namespace ETFTP
     {
         uint16_t packetType = e_ReadRequest;
         uint8_t numKeys;
-        int8_t filePath[257];
+        int8_t data[515];
 
-        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(filePath);
+        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(data);
+        static void serialize(uint8_t* dest, const ReadRequestPacket* src);
+        static void deserialize(ReadRequestPacket* dest, const uint8_t* src);
     } ReadRequestPacket;
 
     typedef struct WriteRequestPacket
     {
         uint16_t packetType = e_WriteRequest;
         uint8_t numKeys;
-        int8_t filePath[257];
-        
-        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(filePath);
+        int8_t data[515];
+
+        static const size_t SIZE = sizeof(packetType) + sizeof(numKeys) + sizeof(data);
     } WriteRequestPacket;
 
     typedef struct ErrorPacket
@@ -47,6 +49,8 @@ namespace ETFTP
         int8_t message[257];
 
         static const size_t SIZE = sizeof(packetType) + sizeof(errorCode) + sizeof(message);
+        static void serialize(uint8_t* dest, const ErrorPacket* src);
+        static void deserialize(ErrorPacket* dest, const uint8_t* src);
     } ErrorPacket;
 
     typedef struct FileDataPacket
@@ -56,6 +60,8 @@ namespace ETFTP
         uint8_t data[512];
 
         static const size_t SIZE = sizeof(packetType) + sizeof(blockNumber) + sizeof(data);
+        static void serialize(uint8_t* dest, const FileDataPacket* src);
+        static void deserialize(FileDataPacket* dest, const uint8_t* src);
     } FileDataPacket;
 
     typedef struct AckPacket
@@ -64,6 +70,8 @@ namespace ETFTP
         uint32_t value;
 
         static const size_t SIZE = sizeof(packetType) + sizeof(value);
+        static void serialize(uint8_t* dest, const AckPacket* src);
+        static void deserialize(AckPacket* dest, const uint8_t* src);
     } AckPacket;
 
     typedef struct LoginRequestPacket

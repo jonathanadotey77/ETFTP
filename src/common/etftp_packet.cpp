@@ -5,6 +5,62 @@
 
 namespace ETFTP
 {
+
+    void ReadRequestPacket::serialize(uint8_t *dest, const ReadRequestPacket *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint8_t *numKeys = reinterpret_cast<uint8_t *>(dest + 2);
+
+        *packetType = htons(src->packetType);
+        *numKeys = src->numKeys;
+        memcpy(dest + 3, src->data, 515);
+    }
+    void ReadRequestPacket::deserialize(ReadRequestPacket *dest, const uint8_t *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint8_t *numKeys = reinterpret_cast<uint8_t *>(dest + 2);
+
+        dest->packetType = ntohs(*packetType);
+        dest->numKeys = *numKeys;
+        memcpy(dest->data, src + 3, 515);
+    }
+
+    void FileDataPacket::serialize(uint8_t *dest, const FileDataPacket *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint32_t *blockNumber = reinterpret_cast<uint32_t *>(dest + 2);
+
+        *packetType = htons(src->packetType);
+        *blockNumber = htons(src->blockNumber);
+        memcpy(dest + 6, src->data, 512);
+    }
+    void FileDataPacket::deserialize(FileDataPacket *dest, const uint8_t *src)
+    {
+        uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
+        uint32_t blockNumber = ntohs(*(reinterpret_cast<const uint32_t *>(src + 2)));
+
+        dest->packetType = packetType;
+        dest->blockNumber = blockNumber;
+        memcpy(dest->data, src + 6, 512);
+    }
+
+    void AckPacket::serialize(uint8_t *dest, const AckPacket *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint32_t *value = reinterpret_cast<uint32_t *>(dest + 2);
+
+        *packetType = htons(src->packetType);
+        *value = htons(src->value);
+    }
+    void AckPacket::deserialize(AckPacket *dest, const uint8_t *src)
+    {
+        uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
+        uint32_t value = ntohs(*(reinterpret_cast<const uint32_t *>(src + 2)));
+
+        dest->packetType = packetType;
+        dest->value = value;
+    }
+
     void LoginRequestPacket::serialize(uint8_t *dest, const LoginRequestPacket *src)
     {
         uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
@@ -102,7 +158,8 @@ namespace ETFTP
         memcpy(dest->data, src + 8, 512);
     }
 
-    void HandshakePacket::serialize(uint8_t* dest, const HandshakePacket* src) {
+    void HandshakePacket::serialize(uint8_t *dest, const HandshakePacket *src)
+    {
         uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
         uint16_t *step = reinterpret_cast<uint16_t *>(dest + 2);
 
@@ -111,7 +168,8 @@ namespace ETFTP
         memcpy(dest + 4, src->data, 520);
     }
 
-    void HandshakePacket::deserialize(HandshakePacket* dest, const uint8_t* src) {
+    void HandshakePacket::deserialize(HandshakePacket *dest, const uint8_t *src)
+    {
         uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
         uint16_t step = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
 

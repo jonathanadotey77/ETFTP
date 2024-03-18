@@ -3,6 +3,7 @@
 
 #include <cstdlib>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -17,7 +18,7 @@ namespace ETFTP
         volatile uint64_t value;
 
     public:
-        FileMutex() : value(0){};
+        FileMutex();
 
         void acquireWriter();
         void acquireReader();

@@ -5,8 +5,9 @@
 #include "etftp_lfucache.h"
 #include "etftp_loginsystem.h"
 
-#include "../common/etftp_loginstatus.h"
 #include "../common/etftp_buffer.h"
+#include "../common/etftp_loginstatus.h"
+#include "../common/etftp_packet.h"
 
 #include <arpa/inet.h>
 #include <mutex>
@@ -63,6 +64,10 @@ namespace ETFTP
     public:
         static void *listenerThread(void *a);
         static void *clientThread(void *a);
+
+        void handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in clientAddress);
+
+        void acquireReaderLock(const std::string& path);
     };
 
 }

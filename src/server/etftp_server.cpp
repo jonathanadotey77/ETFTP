@@ -2,7 +2,6 @@
 
 #include "../common/etftp_buffer.h"
 #include "../common/etftp_misc.h"
-#include "../common/etftp_packet.h"
 #include "../common/etftp_security.h"
 
 #include <arpa/inet.h>
@@ -20,7 +19,7 @@ typedef struct ClientThreadArg
 {
     ETFTP::Server *server;
     struct sockaddr_in clientAddress;
-    uint16_t port;
+    uint16_t portIdx;
     int sd;
 } ClientThreadArg;
 
@@ -30,12 +29,93 @@ namespace ETFTP
     const in_addr_t Server::SERVER_IP_ADDRESS = INADDR_ANY;
     const std::string Server::FILESYSTEM_ROOT = std::string(getenv("ETFTP_ROOT")) + "/filesystem";
 
+    void Server::handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in clientAddress) {
+        const socklen_t clientAddressLen = sizeof(struct sockaddr);
+        uint32_t numKeys = requestPacket.numKeys;
+
+        struct sockaddr_in srcAddress;
+        socklen_t srcAddressLen = sizeof(srcAddress);
+
+        int mySocket = this->clientSockets[portIdx];
+
+        std::vector<Buffer> keys(numKeys, Buffer(512));
+        uint32_t randPermutation = randomInt32()%factorial(numKeys);
+        for (Buffer& key : keys) {
+            randomMask(key);
+            KeyPacket keyPacket;
+            keyPacket.packetType = e_Key;
+            for (int i=0; i<512; i++) {
+                keyPacket.data[i] = key[i];
+            }
+            keyPacket.permutation = randPermutation;
+            uint8_t temp[KeyPacket::SIZE];
+            KeyPacket::serialize(temp, &keyPacket);
+            secureSend(mySocket, temp, KeyPacket::SIZE, (struct sockaddr*) &clientAddress);
+            memset(&keyPacket, 0, sizeof(KeyPacket));
+            memset(&temp, 0, sizeof(temp));
+        }
+
+        std::string path, mode;
+        path = std::string(reinterpret_cast<const char*>(requestPacket.data));
+        mode = std::string(reinterpret_cast<const char*>(requestPacket.data + path.size() + 1));
+
+        if(mode != "octet") {
+            return;
+        }
+
+        this->acquireReaderLock(path);
+        std::vector<int> order = kthPermutation(numKeys, randPermutation);
+        FILE* fp = fopen(path.c_str(), "r");
+        FileDataPacket fileDataPacket;
+        uint32_t block = 1;
+        uint8_t buffer[FileDataPacket::SIZE] = {0};
+        while(true) {
+            int i = 0;
+            int8_t ch = fgetc(fp);
+            Buffer& key = keys[order[(block-1)%numKeys] - 1];
+            for (; i<512 && ch != EOF; i++, ch=fgetc(fp)) {
+                fileDataPacket.data[i] = ch ^ key[i];
+            }
+
+            FileDataPacket::serialize(buffer, &fileDataPacket);
+            while(true) {
+                sendto(mySocket, buffer, FileDataPacket::SIZE - sizeof(fileDataPacket.data) + i, 0, (const struct sockaddr*) &clientAddress, clientAddressLen);
+                bool acked = false;
+                while(true) {
+                    int bytes = recvfrom(mySocket, buffer, AckPacket::SIZE, 0, (struct sockaddr*) &srcAddress, &srcAddressLen);
+                    if(bytes != AckPacket::SIZE) {
+                        continue;
+                    }
+                    AckPacket ackPacket;
+                    AckPacket::deserialize(&ackPacket, buffer);
+                    if(ackPacket.value != block) {
+                        continue;
+                    }
+                    acked = true;
+                    break;
+                }
+
+                if(acked) {
+                    break;
+                }
+            }
+
+            if(i<512 || block == UINT32_MAX) {
+                break;
+            }
+
+            block++;
+        }
+
+        memset(&fileDataPacket, 0, sizeof(FileDataPacket));
+    }
+
     void *Server::clientThread(void *a)
     {
         ClientThreadArg *arg = static_cast<ClientThreadArg *>(a);
         Server *server = arg->server;
         struct sockaddr_in clientAddress = arg->clientAddress;
-        uint16_t port = arg->port;
+        uint16_t portIdx = arg->portIdx;
         int sd = arg->sd;
         delete arg;
 
@@ -70,10 +150,18 @@ namespace ETFTP
 
             int bytes = recvfrom(sd, buffer, 518, 0, (struct sockaddr *)&sourceAddress, &sourceAddressLen);
             printf("Received %d bytes from %s\n", bytes, clientStr.c_str());
+
+            uint16_t packetType = ntohs(*(reinterpret_cast<uint16_t*>(buffer)));
+
+            if(packetType == e_ReadRequest) {
+                ReadRequestPacket readRequestPacket;
+                ReadRequestPacket::deserialize(&readRequestPacket, buffer);
+                server->handleReadRequest(portIdx, readRequestPacket, clientAddress);
+            }
         }
 
-        pthread_mutex_unlock(&server->portMutex[port]);
-        server->clientThreadOpened[port] = false;
+        pthread_mutex_unlock(&server->portMutex[portIdx]);
+        server->clientThreadOpened[portIdx] = false;
 
         printf("Disconnected client %s\n", clientStr.c_str());
         return NULL;
@@ -240,13 +328,13 @@ namespace ETFTP
 
             if (found)
             {
-                loginResponse.port = portIdx;
+                loginResponse.port = server->ports->sin_port;
                 loginResponse.status = LoginStatus::e_LoginSuccess;
                 printf("Login success!\n");
                 ClientThreadArg *arg = new ClientThreadArg;
                 arg->server = server;
                 arg->clientAddress = sourceAddr;
-                arg->port = portIdx;
+                arg->portIdx = portIdx;
                 arg->sd = server->clientSockets[portIdx];
                 pthread_create(&(server->clientThreads[portIdx]), NULL, clientThread, arg);
                 server->clientThreadOpened[portIdx] = true;
@@ -264,6 +352,15 @@ namespace ETFTP
         }
 
         return NULL;
+    }
+
+    void Server::acquireReaderLock(const std::string& path) {
+        serverLock.lock();
+        if(this->fileLocks.find(path) == this->fileLocks.end()) {
+            this->fileLocks[path];
+        }
+        serverLock.unlock();
+        this->fileLocks[path].acquireReader();
     }
 
     Server::Server(uint16_t startPort, uint16_t endPort)

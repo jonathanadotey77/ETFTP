@@ -32,6 +32,19 @@ namespace ETFTP
         return r;
     }
 
+    uint32_t randomInt32() {
+        if (!randInitialized)
+        {
+            RAND_poll();
+            randInitialized = true;
+        }
+
+        uint32_t r = 0;
+        RAND_bytes(reinterpret_cast<unsigned char *>(&r), 4);
+
+        return r;
+    }
+
     void randomMask(Buffer &buffer)
     {
         if (buffer.size() != 512)
