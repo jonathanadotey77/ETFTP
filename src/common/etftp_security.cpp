@@ -1,7 +1,9 @@
 #include "etftp_security.h"
 
 #include "etftp_misc.h"
+#include "etftp_packet.h"
 
+#include <arpa/inet.h>
 #include <iomanip>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -86,5 +88,66 @@ namespace ETFTP
         std::string salted;
         hashPassword(hashedPassword + salt, salted);
         return salted;
+    }
+
+    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr *address)
+    {
+        Buffer mask(len);
+        randomMask(mask);
+
+        HandshakePacket packet;
+        packet.step = 1;
+        for (size_t i=0; i<len; i++) {
+            packet.data[i] = buffer[i] ^ mask[i];
+        }
+
+        uint8_t temp[HandshakePacket::SIZE] = {0};
+        socklen_t addressLen = sizeof(struct sockaddr);
+
+        HandshakePacket::serialize(temp, &packet);
+        sendto(fd, temp, HandshakePacket::SIZE, 0, address, addressLen);
+
+        struct sockaddr_in srcAddr;
+        socklen_t srcAddrLen = sizeof(srcAddr);
+        
+        recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &srcAddr, &srcAddrLen);
+        HandshakePacket::deserialize(&packet, temp);
+        
+        packet.step = 3;
+        for (size_t i=0; i<len; i++) {
+            packet.data[i] = buffer[i] ^ mask[i];
+        }
+
+        HandshakePacket::serialize(temp, &packet);
+        return sendto(fd, temp, HandshakePacket::SIZE, 0, address, addressLen);
+    }
+
+    ssize_t secureRecv(int fd, uint8_t *buffer, size_t len) {
+        Buffer mask(len);
+        randomMask(mask);
+        uint8_t temp[HandshakePacket::SIZE] = {0};
+
+        struct sockaddr_in address;
+        socklen_t addressLen = sizeof(struct sockaddr);
+
+        HandshakePacket packet;
+        memset(&packet, 0, sizeof(packet));
+        recvfrom(fd, temp, len, 0, (struct sockaddr*) &address, &addressLen);
+        HandshakePacket::deserialize(&packet, temp);
+        packet.step = 2;
+        for (size_t i=0; i<len; i++) {
+            packet.data[i] = temp[i] ^ mask[i];
+        }
+
+        HandshakePacket::serialize(temp, &packet);
+        sendto(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, addressLen);
+
+        ssize_t bytes = recvfrom(fd, temp, len, 0, (struct sockaddr*) &address, &addressLen);
+        HandshakePacket::deserialize(&packet, temp);
+        packet.step = 4;
+        for (size_t i=0; i<len; i++) {
+            buffer[i] = packet.data[i] ^ mask[i];
+        }
+        return bytes;
     }
 }

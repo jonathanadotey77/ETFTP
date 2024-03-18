@@ -101,4 +101,22 @@ namespace ETFTP
         dest->permutation = permutation;
         memcpy(dest->data, src + 8, 512);
     }
+
+    void HandshakePacket::serialize(uint8_t* dest, const HandshakePacket* src) {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+        uint16_t *step = reinterpret_cast<uint16_t *>(dest + 2);
+
+        *packetType = htons(src->packetType);
+        *step = htons(src->step);
+        memcpy(dest + 4, src->data, 520);
+    }
+
+    void HandshakePacket::deserialize(HandshakePacket* dest, const uint8_t* src) {
+        uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
+        uint16_t step = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
+
+        dest->packetType = packetType;
+        dest->step = step;
+        memcpy(dest->data, src + 4, 520);
+    }
 }

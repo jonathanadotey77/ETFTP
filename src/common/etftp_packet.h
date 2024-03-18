@@ -18,7 +18,8 @@ namespace ETFTP
         e_LoginRequest = 7,
         e_LoginResponse = 8,
         e_Ping = 9,
-        e_Key = 10
+        e_Key = 10,
+        e_Handshake = 11
     };
 
     typedef struct ReadRequestPacket
@@ -121,6 +122,16 @@ namespace ETFTP
         static void serialize(uint8_t* dest, const KeyPacket* src);
         static void deserialize(KeyPacket* dest, const uint8_t* src);
     } KeyPacket;
+
+    typedef struct HandshakePacket {
+        uint16_t packetType = e_Handshake;
+        uint16_t step;
+        uint8_t data[520];
+
+        static const size_t SIZE = sizeof(packetType) + sizeof(step) + sizeof(data);
+        static void serialize(uint8_t* dest, const HandshakePacket* src);
+        static void deserialize(HandshakePacket* dest, const uint8_t* src);
+    } HandshakePacket;
 
 }
 #endif
