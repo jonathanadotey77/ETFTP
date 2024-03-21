@@ -9,15 +9,15 @@
 namespace ETFTP
 {
 
-    std::string bytesToHexString(const unsigned char *bytes, size_t length);
+    std::string bytesToHexString(const uint8_t *bytes, size_t length);
 
-    in_addr_t getIpAddress();
+    in6_addr getIpAddress();
 
     size_t writeCallback(void *contents, size_t size, size_t nmemb, std::string *data);
 
     std::string getPublicIpAddress();
 
-    std::string getIpString(const struct sockaddr_in &address);
+    std::string getIpString(const struct sockaddr_in6 &address);
 
     std::vector<int> kthPermutation(int n, int k);
 

@@ -23,7 +23,7 @@ namespace ETFTP
 
     std::string saltedHash(const std::string &hashedPassword, const std::string &salt);
 
-    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr *address);
+    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr_in6 *address);
 
     ssize_t secureRecv(int fd, uint8_t *buffer, size_t len);
 }

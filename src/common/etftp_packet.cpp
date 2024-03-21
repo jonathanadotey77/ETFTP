@@ -17,8 +17,8 @@ namespace ETFTP
     }
     void ReadRequestPacket::deserialize(ReadRequestPacket *dest, const uint8_t *src)
     {
-        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
-        uint8_t *numKeys = reinterpret_cast<uint8_t *>(dest + 2);
+        const uint16_t *packetType = reinterpret_cast<const uint16_t *>(src);
+        const uint8_t *numKeys = reinterpret_cast<const uint8_t *>(src + 2);
 
         dest->packetType = ntohs(*packetType);
         dest->numKeys = *numKeys;
@@ -31,13 +31,13 @@ namespace ETFTP
         uint32_t *blockNumber = reinterpret_cast<uint32_t *>(dest + 2);
 
         *packetType = htons(src->packetType);
-        *blockNumber = htons(src->blockNumber);
+        *blockNumber = htonl(src->blockNumber);
         memcpy(dest + 6, src->data, 512);
     }
     void FileDataPacket::deserialize(FileDataPacket *dest, const uint8_t *src)
     {
         uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
-        uint32_t blockNumber = ntohs(*(reinterpret_cast<const uint32_t *>(src + 2)));
+        uint32_t blockNumber = ntohl(*(reinterpret_cast<const uint32_t *>(src + 2)));
 
         dest->packetType = packetType;
         dest->blockNumber = blockNumber;
@@ -50,12 +50,12 @@ namespace ETFTP
         uint32_t *value = reinterpret_cast<uint32_t *>(dest + 2);
 
         *packetType = htons(src->packetType);
-        *value = htons(src->value);
+        *value = htonl(src->value);
     }
     void AckPacket::deserialize(AckPacket *dest, const uint8_t *src)
     {
         uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
-        uint32_t value = ntohs(*(reinterpret_cast<const uint32_t *>(src + 2)));
+        uint32_t value = ntohl(*(reinterpret_cast<const uint32_t *>(src + 2)));
 
         dest->packetType = packetType;
         dest->value = value;
@@ -150,7 +150,7 @@ namespace ETFTP
     {
         uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
         uint16_t step = ntohs(*(reinterpret_cast<const uint16_t *>(src + 2)));
-        uint32_t permutation = ntohs(*(reinterpret_cast<const uint32_t *>(src + 4)));
+        uint32_t permutation = ntohl(*(reinterpret_cast<const uint32_t *>(src + 4)));
 
         dest->packetType = packetType;
         dest->step = step;

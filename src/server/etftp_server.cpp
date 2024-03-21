@@ -18,7 +18,7 @@
 typedef struct ClientThreadArg
 {
     ETFTP::Server *server;
-    struct sockaddr_in clientAddress;
+    struct sockaddr_in6 clientAddress;
     uint16_t portIdx;
     int sd;
 } ClientThreadArg;
@@ -28,18 +28,20 @@ static const std::string QUIT_MESSAGE = "QUIT_MESSAGE";
 namespace ETFTP
 {
 
-    const in_addr_t Server::SERVER_IP_ADDRESS = INADDR_ANY;
+    const in6_addr Server::SERVER_IP_ADDRESS = in6addr_any;
     const std::string Server::FILESYSTEM_ROOT = std::string(getenv("ETFTP_ROOT")) + "/filesystem";
 
-    void Server::handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, const struct sockaddr_in clientAddress) {
-        const socklen_t clientAddressLen = sizeof(struct sockaddr);
-        uint32_t numKeys = requestPacket.numKeys;
+    void Server::handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, const struct sockaddr_in6 clientAddress) {
+        const socklen_t clientAddressLen = sizeof(clientAddress);
+        const uint32_t numKeys = static_cast<uint32_t>(requestPacket.numKeys);
+        printf("Handling read request (%d keys)\n", (int)numKeys);
 
-        struct sockaddr_in srcAddress;
+        struct sockaddr_in6 srcAddress;
         socklen_t srcAddressLen = sizeof(srcAddress);
 
-        std::string path, mode;
+        std::string path, localPath, mode;
         path = std::string(reinterpret_cast<const char*>(requestPacket.data));
+        localPath = FILESYSTEM_ROOT + "/" + path;
         mode = std::string(reinterpret_cast<const char*>(requestPacket.data + path.size() + 1));
 
         if(mode != "octet") {
@@ -50,25 +52,37 @@ namespace ETFTP
 
         int mySocket = this->clientSockets[portIdx];
 
-        uint32_t randPermutation = randomInt32()%factorial(numKeys);
-        std::vector<Buffer> keys = this->createAndSendKeys(numKeys, randPermutation, mySocket, (const struct sockaddr*)&clientAddress);
+        uint32_t randPermutation = randomInt32()%factorial(numKeys) + 1;
+        std::vector<Buffer> keys = this->createAndSendKeys(numKeys, randPermutation, mySocket, &clientAddress);
 
         this->acquireReaderLock(path);
+        printf("Reader lock acquired\n");
         std::vector<int> order = kthPermutation(numKeys, randPermutation);
-        FILE* fp = fopen(path.c_str(), "r");
+        FILE* fp = fopen(localPath.c_str(), "r");
         FileDataPacket fileDataPacket;
         uint32_t block = 1;
         uint8_t buffer[FileDataPacket::SIZE] = {0};
         while(true) {
-            int i = 0;
-            const Buffer& key = keys[order[(block-1)%numKeys] - 1];
-            for (int8_t ch = fgetc(fp); i<512 && ch != EOF; i++, ch=fgetc(fp)) {
-                fileDataPacket.data[i] = ch ^ key[i];
+            printf("Block: %d\n", block);
+            int keyNumber = order[(block-1)%numKeys];
+            printf("Key: %d\n", keyNumber);
+            const Buffer& key = keys[keyNumber - 1];
+            int i = fread(fileDataPacket.data, 1, 512, fp);
+            for(int j = 0; j < i; ++j) {
+                fileDataPacket.data[j] ^= key[j];
             }
+            printf("Read %d bytes\n", i);
+            fileDataPacket.packetType = e_FileData;
+            fileDataPacket.blockNumber = block;
 
             FileDataPacket::serialize(buffer, &fileDataPacket);
+            int rc = 0;
             while(true) {
-                sendto(mySocket, buffer, FileDataPacket::SIZE - sizeof(fileDataPacket.data) + i, 0, (const struct sockaddr*) &clientAddress, clientAddressLen);
+                rc = sendto(mySocket, buffer, FileDataPacket::SIZE - sizeof(fileDataPacket.data) + i, 0, (const struct sockaddr*) &clientAddress, clientAddressLen);
+                if(rc < 0) {
+                    printf("sendto() failed [%d]\n", errno);
+                    exit(1);
+                }
                 bool acked = false;
                 while(true) {
                     int bytes = recvfrom(mySocket, buffer, 1024, 0, (struct sockaddr*) &srcAddress, &srcAddressLen);
@@ -105,17 +119,18 @@ namespace ETFTP
     {
         ClientThreadArg *arg = static_cast<ClientThreadArg *>(a);
         Server *server = arg->server;
-        struct sockaddr_in clientAddress = arg->clientAddress;
+        struct sockaddr_in6 clientAddress = arg->clientAddress;
+        printf("Family: %d\n", clientAddress.sin6_family);
         uint16_t portIdx = arg->portIdx;
         int sd = arg->sd;
         delete arg;
 
         std::string clientStr = getIpString(clientAddress);
-        printf("Started thread for client %s\n", clientStr.c_str());
+        printf("Started thread for client %s on port %d\n", clientStr.c_str(), (int)ntohs(server->ports[portIdx].sin6_port));
 
-        struct sockaddr_in sourceAddress;
+        struct sockaddr_in6 sourceAddress;
         socklen_t sourceAddressLen = sizeof(sourceAddress);
-        uint8_t buffer[518];
+        uint8_t buffer[1024];
 
         while (!server->isStopped())
         {
@@ -123,9 +138,9 @@ namespace ETFTP
             pfd[0].fd = sd;
             pfd[0].events = POLLIN;
             pfd[0].revents = 0;
-            memset(buffer, 0, 518);
+            memset(buffer, 0, 1024);
 
-            int rc = poll(pfd, 1, 10000);
+            int rc = poll(pfd, 1, 20000);
 
             if (rc == -1)
             {
@@ -139,8 +154,9 @@ namespace ETFTP
                 break;
             }
 
-            int bytes = recvfrom(sd, buffer, 518, 0, (struct sockaddr *)&sourceAddress, &sourceAddressLen);
+            int bytes = recvfrom(sd, buffer, 1024, 0, (struct sockaddr *)&sourceAddress, &sourceAddressLen);
             printf("Received %d bytes from %s\n", bytes, clientStr.c_str());
+            printf("Family: %d\n", sourceAddress.sin6_family);
 
             uint16_t packetType = ntohs(*(reinterpret_cast<uint16_t*>(buffer)));
 
@@ -148,6 +164,8 @@ namespace ETFTP
                 ReadRequestPacket readRequestPacket;
                 ReadRequestPacket::deserialize(&readRequestPacket, buffer);
                 server->handleReadRequest(portIdx, readRequestPacket, clientAddress);
+            } else if(packetType == e_Ping) {
+                sendto(sd, buffer, PingPacket::SIZE, 0, (const struct sockaddr*)&sourceAddress, sizeof(sourceAddress));
             }
         }
 
@@ -163,7 +181,7 @@ namespace ETFTP
         Server *server = static_cast<Server *>(a);
         LFUCache<uint16_t, Buffer> keyTable(1024);
 
-        struct sockaddr_in sourceAddr;
+        struct sockaddr_in6 sourceAddr;
         socklen_t sourceAddrLen = sizeof(sourceAddr);
         uint8_t buffer[1024];
         LoginRequestPacket loginRequest;
@@ -212,7 +230,7 @@ namespace ETFTP
                     PingPacket pingPacket;
                     PingPacket::deserialize(&pingPacket, buffer);
                     sendto(server->listenerSocket, buffer, bytes, 0, (const sockaddr *)&sourceAddr, sourceAddrLen);
-                    printf("PING received from port %d with value %d\n", static_cast<int>(ntohs(sourceAddr.sin_port)), static_cast<int>(pingPacket.value));
+                    printf("PING received from port %d with value %d\n", static_cast<int>(ntohs(sourceAddr.sin6_port)), static_cast<int>(pingPacket.value));
                 }
                 else
                 {
@@ -319,7 +337,7 @@ namespace ETFTP
 
             if (found)
             {
-                loginResponse.port = server->ports->sin_port;
+                loginResponse.port = ntohs(server->ports->sin6_port);
                 loginResponse.status = LoginStatus::e_LoginSuccess;
                 printf("Login success!\n");
                 ClientThreadArg *arg = new ClientThreadArg;
@@ -363,8 +381,10 @@ namespace ETFTP
         this->fileLocks[path].releaseReader();
     }
 
-    std::vector<Buffer> Server::createAndSendKeys(int n, int k, int sd, const struct sockaddr* clientAddress) {
+    std::vector<Buffer> Server::createAndSendKeys(int n, int k, int sd, const struct sockaddr_in6* clientAddress) {
         std::vector<Buffer> keys(n, Buffer(512));
+        printf("Sending %d keys\n", n);
+        printf("Permutation: %d\n", k);
         
         for (Buffer& key : keys) {
             randomMask(key);
@@ -376,10 +396,13 @@ namespace ETFTP
             keyPacket.permutation = k;
             uint8_t temp[KeyPacket::SIZE];
             KeyPacket::serialize(temp, &keyPacket);
-            secureSend(sd, temp, KeyPacket::SIZE, (struct sockaddr*) &clientAddress);
+            secureSend(sd, temp, KeyPacket::SIZE, clientAddress);
+            printf("Sent key\n");
             memset(&keyPacket, 0, sizeof(KeyPacket));
             memset(&temp, 0, sizeof(temp));
         }
+
+        printf("Sent %d keys\n", n);
 
         return keys;
     }
@@ -390,10 +413,14 @@ namespace ETFTP
         this->startPort = startPort + 1;
         this->endPort = endPort;
         this->numPorts = this->endPort - this->startPort + 1;
-        this->serverAddress.sin_family = AF_INET;
-        this->serverAddress.sin_addr.s_addr = SERVER_IP_ADDRESS;
-        this->serverAddress.sin_port = htons(this->listenerPort);
-        this->ports = new sockaddr_in[this->numPorts];
+
+        this->serverAddress.sin6_family = AF_INET6;
+        memcpy(&this->serverAddress.sin6_addr, &SERVER_IP_ADDRESS, sizeof(in6_addr));
+        this->serverAddress.sin6_port = htons(this->listenerPort);
+        this->serverAddress.sin6_flowinfo = 0;
+        this->serverAddress.sin6_scope_id = 0;
+
+        this->ports = new sockaddr_in6[this->numPorts];
         this->portMutex = new pthread_mutex_t[this->numPorts];
         this->clientSockets = new int[this->numPorts];
         this->clientThreads = new pthread_t[this->numPorts];
@@ -402,12 +429,12 @@ namespace ETFTP
         this->stopped = true;
 
         const uint16_t p = this->startPort + 1;
-        for (int i = 0; i < this->numPorts; ++i)
+        for (uint16_t i = 0; i < this->numPorts; ++i)
         {
-            memset(&(this->ports[i]), 0, sizeof(struct sockaddr_in));
-            this->ports[i].sin_family = AF_INET;
-            this->ports[i].sin_addr.s_addr = Server::SERVER_IP_ADDRESS;
-            this->ports[i].sin_port = htons(p + i);
+            memset(&(this->ports[i]), 0, sizeof(struct sockaddr_in6));
+            this->ports[i].sin6_family = AF_INET6;
+            memcpy(&this->ports[i].sin6_addr, &SERVER_IP_ADDRESS, sizeof(in6_addr));
+            this->ports[i].sin6_port = htons(p + i);
             this->clientThreads[i] = 0;
             this->clientThreadOpened[i] = false;
 
@@ -438,7 +465,7 @@ namespace ETFTP
             return false;
         }
 
-        this->listenerSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        this->listenerSocket = socket(AF_INET6, SOCK_DGRAM, 0);
         if (bind(this->listenerSocket, (const sockaddr *)&this->serverAddress, sizeof(this->serverAddress)) < 0)
         {
             perror("Bind() failed\n");
@@ -447,9 +474,10 @@ namespace ETFTP
 
         for (uint16_t i = 0; i < this->numPorts; ++i)
         {
-            this->clientSockets[i] = socket(AF_INET, SOCK_DGRAM, 0);
+            this->clientSockets[i] = socket(AF_INET6, SOCK_DGRAM, 0);
             if (bind(this->clientSockets[i], (const sockaddr *)&this->ports[i], sizeof(this->ports[i])) < 0)
             {
+                printf("Failed to bind socket [%d]\n", errno);
                 close(this->clientSockets[i]);
                 for (uint16_t j = 0; j < i; ++j)
                 {

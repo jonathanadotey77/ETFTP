@@ -10,56 +10,46 @@ namespace ETFTP
     
     void FileMutex::acquireWriter()
     {
-        while (true)
+        lock.lock();
+
+        if (this->value == 0)
         {
-            lock.lock();
-
-            if (this->value == 0)
-            {
-                this->value = ULLONG_MAX;
-            }
-
-            lock.unlock();
+            this->value = ULLONG_MAX;
         }
+
+        lock.unlock();
+    
     }
 
     void FileMutex::acquireReader()
     {
-        while (true)
+        lock.lock();
+
+        if (this->value != ULLONG_MAX)
         {
-            lock.lock();
-
-            if (this->value != ULLONG_MAX)
-            {
-                this->value++;
-            }
-
-            lock.unlock();
+            this->value++;
         }
+
+        lock.unlock();
     }
 
     void FileMutex::releaseWriter()
     {
-        while (true)
-        {
-            lock.lock();
+        lock.lock();
 
-            this->value = 0;
+        this->value = 0;
 
-            lock.unlock();
-        }
+        lock.unlock();
+    
     }
 
     void FileMutex::releaseReader()
     {
-        while (true)
-        {
-            lock.lock();
+        lock.lock();
 
-            this->value--;
+        this->value--;
 
-            lock.unlock();
-        }
+        lock.unlock();
     }
 
     bool FileMutex::canDestroy()

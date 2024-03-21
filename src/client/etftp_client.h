@@ -4,20 +4,27 @@
 #include "../common/etftp_misc.h"
 #include "../common/etftp_security.h"
 
+#include <string>
+#include <vector>
+
 namespace ETFTP
 {
 
     class Client
     {
     public:
-        static const in_addr_t CLIENT_IP_ADDRESS;
+        static const in6_addr CLIENT_IP_ADDRESS;
 
     private:
-        struct sockaddr_in serverAddress;
-        struct sockaddr_in clientAddress;
+        struct sockaddr_in6 serverAddress;
+        struct sockaddr_in6 clientAddress;
         uint16_t port;
 
         int sd;
+    
+    private:
+
+        std::vector<Buffer> receiveKeys(int n, int* k);
 
     public:
         Client(uint16_t port);
@@ -29,6 +36,10 @@ namespace ETFTP
         bool ping(int value);
         void setServer(const std::string &serverIpAddress, uint16_t serverPort);
         void printServerInfo() const;
+
+        void sendAck(uint32_t block);
+
+        int getRequest(const std::string& localPath, const std::string& remotePath);
     };
 
 }

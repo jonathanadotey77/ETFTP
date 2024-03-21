@@ -134,7 +134,7 @@ namespace ETFTP
     typedef struct HandshakePacket {
         uint16_t packetType = e_Handshake;
         uint16_t step;
-        uint8_t data[520];
+        uint8_t data[580];
 
         static const size_t SIZE = sizeof(packetType) + sizeof(step) + sizeof(data);
         static void serialize(uint8_t* dest, const HandshakePacket* src);

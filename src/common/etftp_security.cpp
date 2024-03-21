@@ -47,7 +47,7 @@ namespace ETFTP
 
     void randomMask(Buffer &buffer)
     {
-        if (buffer.size() != 512)
+        if (buffer.size() == 0)
         {
             buffer.init(512);
         }
@@ -57,7 +57,7 @@ namespace ETFTP
             RAND_poll();
             randInitialized = true;
         }
-        RAND_bytes(buffer.data(), 512);
+        RAND_bytes(buffer.data(), buffer.size());
     }
 
     void hashPassword(const std::string &password, std::string &hashedPassword)
@@ -103,64 +103,111 @@ namespace ETFTP
         return salted;
     }
 
-    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr *address)
+    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr_in6 *address)
     {
-        Buffer mask(len);
+        printf("In secure send\n");
+        size_t dataLen = sizeof(HandshakePacket::data);
+        Buffer mask(dataLen);
         randomMask(mask);
 
         HandshakePacket packet;
         packet.step = 1;
-        for (size_t i=0; i<len; i++) {
+        for (size_t i=0; i<dataLen; i++) {
             packet.data[i] = buffer[i] ^ mask[i];
         }
 
         uint8_t temp[HandshakePacket::SIZE] = {0};
-        socklen_t addressLen = sizeof(struct sockaddr);
+        socklen_t addressLen = sizeof(struct sockaddr_in6);
 
         HandshakePacket::serialize(temp, &packet);
-        sendto(fd, temp, HandshakePacket::SIZE, 0, address, addressLen);
 
-        struct sockaddr_in srcAddr;
+        int rc = 0;
+
+        rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (const struct sockaddr*)address, addressLen);
+        if(rc < 0) {
+            printf("sendto() failed [%d]\n", errno);
+            return 1;
+        } else {
+            printf("Sent %d bytes\n", rc);
+        }
+
+        struct sockaddr_in6 srcAddr;
         socklen_t srcAddrLen = sizeof(srcAddr);
         
-        recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &srcAddr, &srcAddrLen);
+        printf("Listening.......\n");
+        rc = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &srcAddr, &srcAddrLen);
+        if(rc < 0) {
+            printf("recvfrom() failed [%d]\n", errno);
+            return rc;
+        } else {
+            printf("Received %d bytes\n", rc);
+        }
         HandshakePacket::deserialize(&packet, temp);
         
         packet.step = 3;
-        for (size_t i=0; i<len; i++) {
-            packet.data[i] = buffer[i] ^ mask[i];
+        for (size_t i=0; i<dataLen; i++) {
+            packet.data[i] ^= mask[i];
         }
 
         HandshakePacket::serialize(temp, &packet);
-        return sendto(fd, temp, HandshakePacket::SIZE, 0, address, addressLen);
+        rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (const struct sockaddr*)address, addressLen);
+        if(rc < 0) {
+            printf("sendto() failed [%d]\n", errno);
+        } else {
+            printf("Sent %d bytes\n", rc);
+        }
+
+        return rc;
     }
 
     ssize_t secureRecv(int fd, uint8_t *buffer, size_t len) {
-        Buffer mask(len);
+        size_t dataLen = sizeof(HandshakePacket::data);
+        Buffer mask(dataLen);
         randomMask(mask);
         uint8_t temp[HandshakePacket::SIZE] = {0};
 
-        struct sockaddr_in address;
-        socklen_t addressLen = sizeof(struct sockaddr);
+        struct sockaddr_in6 address;
+        socklen_t addressLen = sizeof(address);
 
         HandshakePacket packet;
         memset(&packet, 0, sizeof(packet));
-        recvfrom(fd, temp, len, 0, (struct sockaddr*) &address, &addressLen);
+
+        int rc = 0;
+
+        printf("Listening\n");
+        rc = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, &addressLen);    
+        if(rc < 0) {
+            printf("recvfrom() failed [%d]\n", errno);
+        } else {
+            printf("Received %d bytes\n", rc);
+        }
+
         HandshakePacket::deserialize(&packet, temp);
         packet.step = 2;
-        for (size_t i=0; i<len; i++) {
-            packet.data[i] = temp[i] ^ mask[i];
+        for (size_t i=0; i<dataLen; i++) {
+            packet.data[i] ^= mask[i];
         }
 
         HandshakePacket::serialize(temp, &packet);
-        sendto(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, addressLen);
+        rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, addressLen);
+        if(rc < 0) {
+            printf("sendto() failed [%d]\n", errno);
+        } else {
+            printf("Sent %d bytes\n", rc);
+        }
 
         ssize_t bytes = recvfrom(fd, temp, len, 0, (struct sockaddr*) &address, &addressLen);
+        if(rc < 0) {
+            printf("recvfrom() failed [%d]\n", errno);
+        } else {
+            printf("Received %d bytes\n", rc);
+        }
         HandshakePacket::deserialize(&packet, temp);
         packet.step = 4;
         for (size_t i=0; i<len; i++) {
             buffer[i] = packet.data[i] ^ mask[i];
         }
+
         return bytes;
     }
 }

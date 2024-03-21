@@ -1,5 +1,6 @@
 #include "etftp_misc.h"
 
+#include <arpa/inet.h>
 #include <curl/curl.h>
 #include <ifaddrs.h>
 #include <iomanip>
@@ -20,13 +21,16 @@ namespace ETFTP
         return ss.str();
     }
 
-    in_addr_t getIpAddress()
+    in6_addr getIpAddress()
     {
         struct ifaddrs *ifAddrStruct = nullptr;
         struct ifaddrs *ifa = nullptr;
-        void *tmpAddrPtr = nullptr;
 
-        getifaddrs(&ifAddrStruct);
+        if (getifaddrs(&ifAddrStruct) == -1)
+        {
+            std::cerr << "Failed to get interface addresses" << std::endl;
+            return in6addr_any;
+        }
 
         for (ifa = ifAddrStruct; ifa != nullptr; ifa = ifa->ifa_next)
         {
@@ -35,17 +39,15 @@ namespace ETFTP
                 continue;
             }
 
-            if (ifa->ifa_addr->sa_family == AF_INET && (ifa->ifa_flags & IFF_LOOPBACK) == 0)
+            if (ifa->ifa_addr->sa_family == AF_INET6 && (ifa->ifa_flags & IFF_LOOPBACK) == 0)
             {
-                tmpAddrPtr = &((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-                char addressBuffer[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-
-                // Assuming the first non-loopback IPv4 address found is the public IP
-                freeifaddrs(ifAddrStruct);
-                in_addr_t ipAddress;
-                inet_pton(AF_INET, addressBuffer, &ipAddress);
-                return ipAddress;
+                struct sockaddr_in6 *addr = reinterpret_cast<struct sockaddr_in6 *>(ifa->ifa_addr);
+                if (!IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr) && !IN6_IS_ADDR_LOOPBACK(&addr->sin6_addr))
+                {
+                    in6_addr ipAddress = addr->sin6_addr;
+                    freeifaddrs(ifAddrStruct);
+                    return ipAddress;
+                }
             }
         }
 
@@ -54,9 +56,10 @@ namespace ETFTP
             freeifaddrs(ifAddrStruct);
         }
 
-        std::cerr << "Failed to get public IP" << std::endl;
-        return INADDR_ANY;
+        std::cerr << "Failed to get public IPv6 address" << std::endl;
+        return in6addr_any;
     }
+
 
     size_t writeCallback(void *contents, size_t size, size_t nmemb, std::string *data)
     {
@@ -96,16 +99,18 @@ namespace ETFTP
         return response;
     }
 
-    std::string getIpString(const struct sockaddr_in &address)
+    std::string getIpString(const struct sockaddr_in6 &address)
     {
-        char ip[80] = {0};
-        inet_ntop(AF_INET, &address.sin_addr.s_addr, ip, 80);
-        sprintf(ip, "%s:%d", ip, static_cast<int>(ntohs(address.sin_port)));
+        char ip[INET6_ADDRSTRLEN] = {0};
+        // inet_ntop(AF_INET, &address.sin_addr.s_addr, ip, 80);
+        inet_ntop(AF_INET6, &address.sin6_addr, ip, INET6_ADDRSTRLEN);
+        sprintf(ip, "%s:%d", ip, static_cast<int>(ntohs(address.sin6_port)));
         return std::string(ip);
     }
 
     std::vector<int> kthPermutation(int n, int k)
     {
+        printf("{N: %d, K: %d}\n", n, k);
         std::vector<int> ans;
         std::vector<int> v;
 
@@ -123,10 +128,17 @@ namespace ETFTP
         {
             factorial /= (n - i);
             int index = k / factorial;
-            ans.push_back(v[index]);
+            int t = v[index];
+            ans.push_back(t);
             v.erase(v.begin() + index);
             k %= factorial;
         }
+
+        printf("ans:");
+        for(int i = 0; i < (int)ans.size(); ++i) {
+            printf(" %d", ans[i]);
+        }
+        printf("\n");
 
         return ans;
     }

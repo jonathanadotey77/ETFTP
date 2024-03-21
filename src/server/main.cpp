@@ -72,8 +72,8 @@ int main(int argc, char *argv[])
             std::cin >> input;
             if (input == "ip")
             {
-                in_addr_t localAddress = ETFTP::getIpAddress();
-                inet_ntop(AF_INET, &localAddress, buffer, 80);
+                in6_addr localAddress = ETFTP::getIpAddress();
+                inet_ntop(AF_INET6, &localAddress, buffer, 80);
                 printf("Local  IP Address: %s\n", buffer);
                 std::string ip = ETFTP::getPublicIpAddress();
                 if (ip.length() != 0)

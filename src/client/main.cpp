@@ -105,6 +105,14 @@ int main(int argc, char *argv[])
                 printf("Login failed\n");
             }
         }
+        else if(input == "get")
+        {
+            std::string remotePath;
+            std::string localPath;
+            std::cin >> remotePath >> localPath;
+
+            client.getRequest(localPath, remotePath);
+        }
         else
         {
             continue;

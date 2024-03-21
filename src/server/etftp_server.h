@@ -22,11 +22,11 @@ namespace ETFTP
     class Server
     {
     public:
-        static const in_addr_t SERVER_IP_ADDRESS;
+        static const in6_addr SERVER_IP_ADDRESS;
         static const std::string FILESYSTEM_ROOT;
 
     private:
-        struct sockaddr_in *ports;
+        struct sockaddr_in6 *ports;
         pthread_mutex_t *portMutex;
         int *clientSockets;
         pthread_t *clientThreads;
@@ -39,7 +39,7 @@ namespace ETFTP
         uint16_t startPort;
         uint16_t endPort;
 
-        struct sockaddr_in serverAddress;
+        struct sockaddr_in6 serverAddress;
 
         std::mutex serverLock;
         std::unordered_map<std::string, FileMutex> fileLocks;
@@ -66,12 +66,12 @@ namespace ETFTP
         static void *listenerThread(void *a);
         static void *clientThread(void *a);
 
-        void handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in clientAddress);
+        void handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in6 clientAddress);
 
         void acquireReaderLock(const std::string& path);
         void releaseReaderLock(const std::string& path);
 
-        std::vector<Buffer> createAndSendKeys(int n, int k, int sd, const struct sockaddr* clientAddress);
+        std::vector<Buffer> createAndSendKeys(int n, int k, int sd, const struct sockaddr_in6* clientAddress);
     };
 
 }
