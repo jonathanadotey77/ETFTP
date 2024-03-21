@@ -23,45 +23,35 @@ typedef struct ClientThreadArg
     int sd;
 } ClientThreadArg;
 
+static const std::string QUIT_MESSAGE = "QUIT_MESSAGE";
+
 namespace ETFTP
 {
 
     const in_addr_t Server::SERVER_IP_ADDRESS = INADDR_ANY;
     const std::string Server::FILESYSTEM_ROOT = std::string(getenv("ETFTP_ROOT")) + "/filesystem";
 
-    void Server::handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in clientAddress) {
+    void Server::handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, const struct sockaddr_in clientAddress) {
         const socklen_t clientAddressLen = sizeof(struct sockaddr);
         uint32_t numKeys = requestPacket.numKeys;
 
         struct sockaddr_in srcAddress;
         socklen_t srcAddressLen = sizeof(srcAddress);
 
-        int mySocket = this->clientSockets[portIdx];
-
-        std::vector<Buffer> keys(numKeys, Buffer(512));
-        uint32_t randPermutation = randomInt32()%factorial(numKeys);
-        for (Buffer& key : keys) {
-            randomMask(key);
-            KeyPacket keyPacket;
-            keyPacket.packetType = e_Key;
-            for (int i=0; i<512; i++) {
-                keyPacket.data[i] = key[i];
-            }
-            keyPacket.permutation = randPermutation;
-            uint8_t temp[KeyPacket::SIZE];
-            KeyPacket::serialize(temp, &keyPacket);
-            secureSend(mySocket, temp, KeyPacket::SIZE, (struct sockaddr*) &clientAddress);
-            memset(&keyPacket, 0, sizeof(KeyPacket));
-            memset(&temp, 0, sizeof(temp));
-        }
-
         std::string path, mode;
         path = std::string(reinterpret_cast<const char*>(requestPacket.data));
         mode = std::string(reinterpret_cast<const char*>(requestPacket.data + path.size() + 1));
 
         if(mode != "octet") {
+            //Send error
+            std::cerr << "Invalid mode: " << mode << std::endl;
             return;
         }
+
+        int mySocket = this->clientSockets[portIdx];
+
+        uint32_t randPermutation = randomInt32()%factorial(numKeys);
+        std::vector<Buffer> keys = this->createAndSendKeys(numKeys, randPermutation, mySocket, (const struct sockaddr*)&clientAddress);
 
         this->acquireReaderLock(path);
         std::vector<int> order = kthPermutation(numKeys, randPermutation);
@@ -71,9 +61,8 @@ namespace ETFTP
         uint8_t buffer[FileDataPacket::SIZE] = {0};
         while(true) {
             int i = 0;
-            int8_t ch = fgetc(fp);
-            Buffer& key = keys[order[(block-1)%numKeys] - 1];
-            for (; i<512 && ch != EOF; i++, ch=fgetc(fp)) {
+            const Buffer& key = keys[order[(block-1)%numKeys] - 1];
+            for (int8_t ch = fgetc(fp); i<512 && ch != EOF; i++, ch=fgetc(fp)) {
                 fileDataPacket.data[i] = ch ^ key[i];
             }
 
@@ -82,7 +71,7 @@ namespace ETFTP
                 sendto(mySocket, buffer, FileDataPacket::SIZE - sizeof(fileDataPacket.data) + i, 0, (const struct sockaddr*) &clientAddress, clientAddressLen);
                 bool acked = false;
                 while(true) {
-                    int bytes = recvfrom(mySocket, buffer, AckPacket::SIZE, 0, (struct sockaddr*) &srcAddress, &srcAddressLen);
+                    int bytes = recvfrom(mySocket, buffer, 1024, 0, (struct sockaddr*) &srcAddress, &srcAddressLen);
                     if(bytes != AckPacket::SIZE) {
                         continue;
                     }
@@ -106,6 +95,8 @@ namespace ETFTP
 
             block++;
         }
+
+        this->releaseReaderLock(path);
 
         memset(&fileDataPacket, 0, sizeof(FileDataPacket));
     }
@@ -179,7 +170,7 @@ namespace ETFTP
         LoginResponsePacket loginResponse;
         while (!server->isStopped())
         {
-            memset(&buffer, 0, LoginRequestPacket::SIZE);
+            memset(&buffer, 0, 1024);
             memset(&loginRequest, 0, sizeof(LoginRequestPacket));
             memset(&loginResponse, 0, sizeof(LoginResponsePacket));
             loginResponse.packetType = e_LoginResponse;
@@ -202,7 +193,7 @@ namespace ETFTP
                 continue;
             }
 
-            int bytes = recvfrom(server->listenerSocket, buffer, LoginRequestPacket::SIZE, 0, (struct sockaddr *)&sourceAddr, &sourceAddrLen);
+            int bytes = recvfrom(server->listenerSocket, buffer, 1024, 0, (struct sockaddr *)&sourceAddr, &sourceAddrLen);
 
             if (bytes < 0)
             {
@@ -361,6 +352,36 @@ namespace ETFTP
         }
         serverLock.unlock();
         this->fileLocks[path].acquireReader();
+    }
+
+    void Server::releaseReaderLock(const std::string& path) {
+        serverLock.lock();
+        if(this->fileLocks.find(path) == this->fileLocks.end()) {
+            this->fileLocks[path];
+        }
+        serverLock.unlock();
+        this->fileLocks[path].releaseReader();
+    }
+
+    std::vector<Buffer> Server::createAndSendKeys(int n, int k, int sd, const struct sockaddr* clientAddress) {
+        std::vector<Buffer> keys(n, Buffer(512));
+        
+        for (Buffer& key : keys) {
+            randomMask(key);
+            KeyPacket keyPacket;
+            keyPacket.packetType = e_Key;
+            for (int i=0; i<512; i++) {
+                keyPacket.data[i] = key[i];
+            }
+            keyPacket.permutation = k;
+            uint8_t temp[KeyPacket::SIZE];
+            KeyPacket::serialize(temp, &keyPacket);
+            secureSend(sd, temp, KeyPacket::SIZE, (struct sockaddr*) &clientAddress);
+            memset(&keyPacket, 0, sizeof(KeyPacket));
+            memset(&temp, 0, sizeof(temp));
+        }
+
+        return keys;
     }
 
     Server::Server(uint16_t startPort, uint16_t endPort)

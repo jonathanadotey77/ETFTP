@@ -31,6 +31,7 @@ namespace ETFTP
         std::string toString() const;
 
         uint8_t &operator[](size_t i);
+        const uint8_t &operator[](size_t i) const;
         Buffer operator^(const Buffer &other);
         Buffer &operator^=(const Buffer &other);
         bool operator==(const Buffer &other);

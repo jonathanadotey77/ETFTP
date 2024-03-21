@@ -82,6 +82,10 @@ namespace ETFTP
         return this->buffer[i];
     }
 
+    const uint8_t &Buffer::operator[](size_t i) const {
+        return this->buffer[i];
+    }
+
     Buffer Buffer::operator^(const Buffer &other)
     {
         size_t newLen = std::min(this->len, other.len);

@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <unordered_map>
+#include <vector>
 
 namespace ETFTP
 {
@@ -68,6 +69,9 @@ namespace ETFTP
         void handleReadRequest(size_t portIdx, const ReadRequestPacket& requestPacket, struct sockaddr_in clientAddress);
 
         void acquireReaderLock(const std::string& path);
+        void releaseReaderLock(const std::string& path);
+
+        std::vector<Buffer> createAndSendKeys(int n, int k, int sd, const struct sockaddr* clientAddress);
     };
 
 }
