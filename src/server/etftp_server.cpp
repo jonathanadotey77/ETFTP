@@ -67,8 +67,9 @@ namespace ETFTP
             int keyNumber = order[(block-1)%numKeys];
             printf("Key: %d\n", keyNumber);
             const Buffer& key = keys[keyNumber - 1];
+            std::cout << bytesToHexString(key.data(), 512) << std::endl;
             int i = fread(fileDataPacket.data, 1, 512, fp);
-            for(int j = 0; j < i; ++j) {
+            for(int j = 0; j < 512; ++j) {
                 fileDataPacket.data[j] ^= key[j];
             }
             printf("Read %d bytes\n", i);
@@ -398,6 +399,7 @@ namespace ETFTP
             KeyPacket::serialize(temp, &keyPacket);
             secureSend(sd, temp, KeyPacket::SIZE, clientAddress);
             printf("Sent key\n");
+            std::cout << "Key sent:\n" << key << std::endl;
             memset(&keyPacket, 0, sizeof(KeyPacket));
             memset(&temp, 0, sizeof(temp));
         }

@@ -313,11 +313,12 @@ namespace ETFTP
             int keyNumber = order[(block-1)%numKeys];
             printf("Key: %d\n", keyNumber);
             const Buffer& key = keys[keyNumber - 1];
+            std::cout << bytesToHexString(key.data(), 512) << std::endl;
 
             int len = rc - (sizeof(fileDataPacket.packetType) + sizeof(fileDataPacket.blockNumber));
             totalBytes += len;
 
-            for(int i = 0; i < len; ++i) {
+            for(int i = 0; i < 512; ++i) {
                 fileDataPacket.data[i] ^= key[i];
             }
 
@@ -350,6 +351,7 @@ namespace ETFTP
             keys.push_back(key);
             *k = keyPacket.permutation;
             printf("P: %d\n", keyPacket.permutation);
+            std::cout << "Key received:\n" << key << std::endl;
         }
         memset(buffer, 0, 1024);
 

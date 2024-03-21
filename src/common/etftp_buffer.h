@@ -26,6 +26,7 @@ namespace ETFTP
         size_t size() const;
 
         uint8_t *data();
+        const uint8_t *data() const;
         void zero();
         void init(size_t len);
         std::string toString() const;

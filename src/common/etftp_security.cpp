@@ -196,7 +196,7 @@ namespace ETFTP
             printf("Sent %d bytes\n", rc);
         }
 
-        ssize_t bytes = recvfrom(fd, temp, len, 0, (struct sockaddr*) &address, &addressLen);
+        ssize_t bytes = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, &addressLen);
         if(rc < 0) {
             printf("recvfrom() failed [%d]\n", errno);
         } else {

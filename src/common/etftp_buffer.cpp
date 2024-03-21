@@ -61,6 +61,11 @@ namespace ETFTP
         return this->buffer;
     }
 
+    const uint8_t *Buffer::data() const
+    {
+        return this->buffer;
+    }
+
     void Buffer::zero()
     {
         memset(this->buffer, 0, this->len);
