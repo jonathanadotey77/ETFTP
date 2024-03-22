@@ -21,6 +21,8 @@ namespace ETFTP
         uint16_t port;
 
         int sd;
+
+        bool loggedIn;
     
     private:
 
@@ -33,6 +35,7 @@ namespace ETFTP
         void stop();
 
         bool login(const std::string &username, const std::string &password);
+        void logout();
         bool ping(int value);
         void setServer(const std::string &serverIpAddress, uint16_t serverPort);
         void printServerInfo() const;

@@ -8,6 +8,7 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <poll.h>
 #include <random>
 #include <sstream>
 #include <string>
@@ -103,14 +104,19 @@ namespace ETFTP
         return salted;
     }
 
-    ssize_t secureSend(int fd, const uint8_t *buffer, size_t len, const struct sockaddr_in6 *address)
+    // For secureSend and secureRecv, error is set to:
+    // 0 if operation completed successfully
+    // 1 if operation if there was a timeout
+    // 2 if there was a poll error
+
+    ssize_t secureSend(int fd, const uint8_t *buffer, const struct sockaddr_in6 *address, int* error)
     {
-        printf("In secure send\n");
         size_t dataLen = sizeof(HandshakePacket::data);
         Buffer mask(dataLen);
         randomMask(mask);
 
         HandshakePacket packet;
+        memset(&packet, 0, sizeof(HandshakePacket));
         packet.step = 1;
         for (size_t i=0; i<dataLen; i++) {
             packet.data[i] = buffer[i] ^ mask[i];
@@ -126,21 +132,39 @@ namespace ETFTP
         rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (const struct sockaddr*)address, addressLen);
         if(rc < 0) {
             printf("sendto() failed [%d]\n", errno);
-            return 1;
-        } else {
-            printf("Sent %d bytes\n", rc);
+            return -1;
         }
 
         struct sockaddr_in6 srcAddr;
         socklen_t srcAddrLen = sizeof(srcAddr);
+
+        if(error != NULL) {
+            *error = 0;
+        }
         
-        printf("Listening.......\n");
+        struct pollfd fds[1];
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+
+        rc = poll(fds, 1, 3000);
+
+        if(rc < 0) {
+            if(error != NULL) {
+                *error = 2;
+            }
+            printf("poll() error\n");
+            return -1;
+        } else if(rc == 0) {
+            if(error != NULL) {
+                *error = 1;
+            }
+            return -1;
+        }
+
         rc = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &srcAddr, &srcAddrLen);
         if(rc < 0) {
             printf("recvfrom() failed [%d]\n", errno);
-            return rc;
-        } else {
-            printf("Received %d bytes\n", rc);
+            return -1;
         }
         HandshakePacket::deserialize(&packet, temp);
         
@@ -153,14 +177,12 @@ namespace ETFTP
         rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (const struct sockaddr*)address, addressLen);
         if(rc < 0) {
             printf("sendto() failed [%d]\n", errno);
-        } else {
-            printf("Sent %d bytes\n", rc);
         }
 
         return rc;
     }
 
-    ssize_t secureRecv(int fd, uint8_t *buffer, size_t len) {
+    ssize_t secureRecv(int fd, uint8_t *buffer, size_t len, int* error) {
         size_t dataLen = sizeof(HandshakePacket::data);
         Buffer mask(dataLen);
         randomMask(mask);
@@ -174,17 +196,37 @@ namespace ETFTP
 
         int rc = 0;
 
-        printf("Listening\n");
+        struct pollfd fds[1];
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+
+        if(error != NULL) {
+            *error = 0;
+        }
+
+        rc = poll(fds, 1, 3000);
+
+        if(rc < 0) {
+            if(error != NULL) {
+                *error = 2;
+            }
+            printf("poll() error\n");
+            return -1;
+        } else if(rc == 0) {
+            if(error != NULL) {
+                *error = 1;
+            }
+            return -1;
+        }
+
         rc = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, &addressLen);    
         if(rc < 0) {
             printf("recvfrom() failed [%d]\n", errno);
-        } else {
-            printf("Received %d bytes\n", rc);
         }
 
         HandshakePacket::deserialize(&packet, temp);
         packet.step = 2;
-        for (size_t i=0; i<dataLen; i++) {
+        for (size_t i = 0; i<dataLen; i++) {
             packet.data[i] ^= mask[i];
         }
 
@@ -192,15 +234,29 @@ namespace ETFTP
         rc = sendto(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, addressLen);
         if(rc < 0) {
             printf("sendto() failed [%d]\n", errno);
-        } else {
-            printf("Sent %d bytes\n", rc);
+        }
+
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+
+        rc = poll(fds, 1, 3000);
+
+        if(rc < 0) {
+            if(error != NULL) {
+                *error = 2;
+            }
+            printf("poll() error\n");
+            return -1;
+        } else if(rc == 0) {
+            if(error != NULL) {
+                *error = 1;
+            }
+            return -1;
         }
 
         ssize_t bytes = recvfrom(fd, temp, HandshakePacket::SIZE, 0, (struct sockaddr*) &address, &addressLen);
         if(rc < 0) {
             printf("recvfrom() failed [%d]\n", errno);
-        } else {
-            printf("Received %d bytes\n", rc);
         }
         HandshakePacket::deserialize(&packet, temp);
         packet.step = 4;

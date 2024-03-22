@@ -8,7 +8,6 @@
 
 namespace ETFTP
 {
-
     std::string bytesToHexString(const uint8_t *bytes, size_t length);
 
     in6_addr getIpAddress();

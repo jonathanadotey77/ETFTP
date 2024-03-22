@@ -1,4 +1,4 @@
-#include "etftp_server.h"
+#include "../server/etftp_server.h"
 
 #include "../common/etftp_misc.h"
 #include "../common/etftp_security.h"

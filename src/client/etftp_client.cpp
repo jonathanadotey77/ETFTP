@@ -30,6 +30,7 @@ namespace ETFTP
         this->clientAddress.sin6_flowinfo = 0;
         this->clientAddress.sin6_scope_id = 0;
         this->sd = 0;
+        this->loggedIn = false;
     }
 
     bool Client::start()
@@ -172,12 +173,29 @@ namespace ETFTP
         {
             this->serverAddress.sin6_port = htons(loginResponse.port);
             printf("Port is %d\n", (int)loginResponse.port);
+            this->loggedIn = true;
             return true;
         }
 
-        printf("Bad everything [%d]\n", loginResponse.status);
+        printf("login failed [%d]\n", loginResponse.status);
 
         return false;
+    }
+
+    void Client::logout() {
+        if(!loggedIn) {
+            return;
+        }
+        this->loggedIn = false;
+        this->serverAddress.sin6_port = htons(10000);
+
+        LogoutPacket logoutPacket;
+        uint8_t buffer[LogoutPacket::SIZE] = {0};
+        LogoutPacket::serialize(buffer, &logoutPacket);
+        int rc = sendto(this->sd, buffer, LogoutPacket::SIZE, 0, (const struct sockaddr*)&this->serverAddress, sizeof(this->serverAddress));
+        if(rc < 0) {
+            printf("sendto() failed [%d]\n", errno);
+        }
     }
 
     bool Client::ping(int value)
@@ -191,7 +209,6 @@ namespace ETFTP
 
         char ip[80] = {0};
         inet_ntop(AF_INET6, &this->serverAddress.sin6_addr, ip, 80);
-        printf("Pinging %s:%d\n", ip, static_cast<int>(ntohs(this->serverAddress.sin6_port)));
 
         sendto(this->sd, buffer, PingPacket::SIZE, 0, (const sockaddr *)&this->serverAddress, sizeof(this->serverAddress));
 
@@ -274,9 +291,11 @@ namespace ETFTP
         }
 
         int permutation = 0;
-        printf("Getting keys\n");
         std::vector<Buffer> keys = this->receiveKeys(numKeys, &permutation);
-        printf("Got keys\n");
+        if(keys.size() == 0) {
+            printf("Server timed out\n");
+            return -1;
+        }
         std::vector<int> order = kthPermutation(numKeys, permutation);
 
         uint32_t block = 1;
@@ -286,7 +305,6 @@ namespace ETFTP
         FILE* fp = fopen(localPath.c_str(), "w");
         int totalBytes = 0;
         while(true) {
-            printf("Expecting block: %u\n", block);
             int rc = 0;
             rc = recvfrom(this->sd, buffer, 1024, 0, (struct sockaddr*)&srcAddress, &srcAddressLen);
             if(rc < 0) {
@@ -301,8 +319,6 @@ namespace ETFTP
                 continue;
             }
 
-            printf("Received block %d\n", fileDataPacket.blockNumber);
-
             if(fileDataPacket.blockNumber < block) {
                 sendAck(fileDataPacket.blockNumber);
                 continue;
@@ -311,9 +327,7 @@ namespace ETFTP
             }
 
             int keyNumber = order[(block-1)%numKeys];
-            printf("Key: %d\n", keyNumber);
             const Buffer& key = keys[keyNumber - 1];
-            std::cout << bytesToHexString(key.data(), 512) << std::endl;
 
             int len = rc - (sizeof(fileDataPacket.packetType) + sizeof(fileDataPacket.blockNumber));
             totalBytes += len;
@@ -323,7 +337,6 @@ namespace ETFTP
             }
 
             fwrite(fileDataPacket.data, len, 1, fp);
-            printf("Writing %d bytes\n", len);
 
             this->sendAck(block);
 
@@ -343,17 +356,23 @@ namespace ETFTP
     std::vector<Buffer> Client::receiveKeys(int n, int* k) {
         std::vector<Buffer> keys;
         uint8_t buffer[1024] = {0};
+        int error = 0;
         for(int i = 0; i < n; ++i) {
-            secureRecv(this->sd, buffer, KeyPacket::SIZE);
+            secureRecv(this->sd, buffer, KeyPacket::SIZE, &error);
+            if(error != 0) {
+                break;
+            }
             KeyPacket keyPacket;
             KeyPacket::deserialize(&keyPacket, buffer);
             Buffer key(keyPacket.data, sizeof(keyPacket.data));
             keys.push_back(key);
             *k = keyPacket.permutation;
-            printf("P: %d\n", keyPacket.permutation);
-            std::cout << "Key received:\n" << key << std::endl;
         }
         memset(buffer, 0, 1024);
+
+        if(error != 0) {
+            keys.clear();
+        }
 
         return keys;
     }

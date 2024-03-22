@@ -1,7 +1,9 @@
-#include "etftp_client.h"
+#include "../client/etftp_client.h"
 
 #include <fstream>
 #include <iostream>
+#include <poll.h>
+#include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -52,8 +54,31 @@ int main(int argc, char *argv[])
     }
 
     std::string input;
-    while (std::cin >> input)
+
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+
+    struct timeval timeout;
+    timeout.tv_usec = 5;
+
+    while (true)
     {
+        struct pollfd fds[1];
+        fds[0].fd = STDIN_FILENO;
+        fds[0].events = POLLIN;
+
+        int rc = poll(fds, 1, 4000);
+
+        if(rc < 0) {
+            printf("poll() failed [%d]\n", errno);
+            break;
+        } else if(rc == 0) {
+            client.ping(0);
+            continue;
+        }
+
+        std::cin >> input;
         if (input == "quit")
         {
             break;
@@ -74,6 +99,7 @@ int main(int argc, char *argv[])
             uint64_t value;
             std::cin >> value;
             value &= (int)UINT16_MAX;
+            printf("Pinging server:\n");
             if (client.ping((uint16_t)value))
             {
                 std::cout << value << std::endl;
@@ -112,6 +138,10 @@ int main(int argc, char *argv[])
             std::cin >> remotePath >> localPath;
 
             client.getRequest(localPath, remotePath);
+        }
+        else if(input == "logout")
+        {
+            client.logout();
         }
         else
         {

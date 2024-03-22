@@ -31,6 +31,8 @@ namespace ETFTP
         int *clientSockets;
         pthread_t *clientThreads;
         volatile bool *clientThreadOpened;
+        volatile bool *clientThreadJoined;
+
 
         pthread_t listenerThreadId;
         uint16_t numPorts;

@@ -134,6 +134,20 @@ namespace ETFTP
         dest->value = value;
     }
 
+    void LogoutPacket::serialize(uint8_t *dest, const LogoutPacket *src)
+    {
+        uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
+
+        *packetType = htons(src->packetType);
+    }
+
+    void LogoutPacket::deserialize(LogoutPacket *dest, const uint8_t *src)
+    {
+        uint16_t packetType = ntohs(*(reinterpret_cast<const uint16_t *>(src)));
+
+        dest->packetType = packetType;
+    }
+
     void KeyPacket::serialize(uint8_t *dest, const KeyPacket *src)
     {
         uint16_t *packetType = reinterpret_cast<uint16_t *>(dest);
