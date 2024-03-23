@@ -3,3 +3,8 @@ build/
 .vscode/
 filesystem/
 login/
+cmake.bld/
+*.cmake
+*CMakeFiles*
+*CMakeCache*
+*/Makefile
